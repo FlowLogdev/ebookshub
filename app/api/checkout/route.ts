@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +20,7 @@ export async function POST(req: NextRequest) {
     if (error || !book) return NextResponse.json({ error: 'Book not found' }, { status: 404 })
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const stripe = getStripe()
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
