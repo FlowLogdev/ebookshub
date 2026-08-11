@@ -1,125 +1,363 @@
-import { createClient } from '@/lib/supabase/server'
-import { BookCard } from '@/components/BookCard'
-import { Book, Category } from '@/lib/types'
-import Link from 'next/link'
-import { ArrowRight, BookOpen, Star, ShieldCheck, Download } from 'lucide-react'
+import Link from "next/link"
+import {
+  BookMarked,
+  Feather,
+  Fingerprint,
+  Globe2,
+  Image as ImageIcon,
+  Layers,
+  Sparkles,
+  Wand2,
+} from "lucide-react"
 
-export const revalidate = 60
+import { BookStack } from "@/components/marketing/book-stack"
+import { SiteFooter } from "@/components/marketing/site-footer"
+import { SiteHeader } from "@/components/marketing/site-header"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { BOOK_TYPES, MAX_PAGE_COUNT, MIN_PAGE_COUNT } from "@/lib/book/constants"
+import { PLAN_TIERS } from "@/lib/pricing"
 
-export default async function HomePage() {
-  const supabase = await createClient()
+const STEPS = [
+  {
+    title: "Describe your idea",
+    body: "Type a sentence or a detailed brief. EbooksHub infers genre, audience, tone, and structure from plain language.",
+  },
+  {
+    title: "Review the blueprint",
+    body: "See exactly how your page count breaks down — front matter, every chapter, back matter — before anything is written.",
+  },
+  {
+    title: "Watch it get written",
+    body: "Chapters are planned, written, and checked for continuity one at a time, with progress you can step away from and return to.",
+  },
+  {
+    title: "Edit, preview, export",
+    body: "Fine-tune any page, regenerate a single chapter or cover, then export a print-ready PDF or ePub.",
+  },
+]
 
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('*')
-    .order('name')
+const CAPABILITIES = [
+  {
+    icon: Layers,
+    title: "Page-accurate blueprints",
+    body: "Pick anywhere from 5 to 300 pages. EbooksHub plans front matter, chapters, and back matter to fit — never padded with filler.",
+  },
+  {
+    icon: Fingerprint,
+    title: "Long-form consistency",
+    body: "A running Book Bible tracks characters, places, and established facts so chapter 40 still agrees with chapter 4.",
+  },
+  {
+    icon: ImageIcon,
+    title: "Illustration & covers",
+    body: "Generate cover concepts and page art in a consistent style, grounded in your characters and setting.",
+  },
+  {
+    icon: Wand2,
+    title: "AI writing assistant",
+    body: "Select any passage and continue, rewrite, expand, shorten, or adjust its tone — without leaving the editor.",
+  },
+  {
+    icon: Globe2,
+    title: "Multilingual by design",
+    body: "Write in 12+ languages, with structure-preserving translation on the roadmap for the whole book at once.",
+  },
+  {
+    icon: BookMarked,
+    title: "Publishing-ready exports",
+    body: "PDF, ePub, and DOCX output that preserves your table of contents, chapter breaks, and page numbers.",
+  },
+]
 
-  const { data: books } = await supabase
-    .from('books')
-    .select('*, category:categories(*)')
-    .eq('published', true)
-    .order('created_at', { ascending: false })
+const SHOWCASE = [
+  { title: "The Moon That Forgot to Shine", type: "Children's Book", pages: 30 },
+  { title: "The Lighthouse Beyond Time", type: "Novel", pages: 220 },
+  { title: "Exploring Our Solar System", type: "Educational Book", pages: 60 },
+  { title: "The Small Business AI Handbook", type: "Business Book", pages: 90 },
+]
 
-  const booksByCategory = (categories ?? []).reduce<Record<string, Book[]>>((acc, cat) => {
-    acc[cat.id] = (books ?? []).filter((b: Book) => b.category_id === cat.id)
-    return acc
-  }, {})
+const FAQS = [
+  {
+    q: "How long can a book be?",
+    a: `Anywhere from ${MIN_PAGE_COUNT} to ${MAX_PAGE_COUNT} pages, chosen from a preset list or a custom count. Longer books are planned and written in chapter-sized chunks, not one giant request, so quality holds up across the whole manuscript.`,
+  },
+  {
+    q: "Do I have to accept the AI's first draft?",
+    a: "No. Review and edit the blueprint before anything is written, then edit, regenerate, or rewrite any chapter, paragraph, or image afterward — nothing is locked in.",
+  },
+  {
+    q: "What can I export?",
+    a: "Print-ready PDF, ePub, and DOCX, with your table of contents, chapter starts, and page numbers preserved. Cover-only and manuscript-only exports are also available.",
+  },
+  {
+    q: "Who owns what I create?",
+    a: "You do. EbooksHub is a tool for producing your book — the words, characters, and artwork you generate and edit are yours.",
+  },
+]
 
-  const featuredBook = books?.[0]
-
+export default function HomePage() {
   return (
-    <div>
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 text-white py-24 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-indigo-700/50 text-indigo-200 text-sm font-medium px-4 py-1.5 rounded-full mb-6">
-            <Star className="w-4 h-4 fill-current" />
-            Bestselling Ebooks
-          </div>
-          <h1 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight">
-            Books That <span className="text-yellow-300">Transform</span> Your Life
-          </h1>
-          <p className="text-xl text-indigo-200 mb-10 max-w-2xl mx-auto">
-            Instantly downloadable ebooks on personal growth, relationships, health & more.
-            Start reading in seconds.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="#books" className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold px-8 py-4 rounded-2xl text-lg transition-colors">
-              Browse Books
-            </a>
-            {featuredBook && (
-              <Link href={`/book/${featuredBook.id}`} className="border-2 border-white/40 hover:border-white text-white font-bold px-8 py-4 rounded-2xl text-lg transition-colors">
-                Featured Book →
-              </Link>
-            )}
-          </div>
-          <div className="mt-12 flex flex-col sm:flex-row gap-6 justify-center text-sm text-indigo-200">
-            <div className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-green-400" /> Secure Stripe Payments</div>
-            <div className="flex items-center gap-2"><Download className="w-5 h-5 text-blue-300" /> Instant PDF Download</div>
-            <div className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-yellow-300" /> DRM-Free Files</div>
-          </div>
-        </div>
-      </section>
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
 
-      {/* Featured Book */}
-      {featuredBook && (
-        <section className="max-w-5xl mx-auto px-4 py-16">
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center border border-indigo-100">
-            <div className="flex-shrink-0 w-48 h-72 bg-gradient-to-br from-indigo-400 to-purple-600 rounded-2xl shadow-2xl flex items-center justify-center overflow-hidden">
-              {featuredBook.cover_url ? (
-                <img src={featuredBook.cover_url} alt={featuredBook.title} className="w-full h-full object-cover" />
-              ) : (
-                <BookOpen className="w-20 h-20 text-white/70" />
-              )}
-            </div>
-            <div className="flex-1">
-              <span className="text-indigo-600 font-semibold text-sm uppercase tracking-wider">⭐ Featured Book</span>
-              <h2 className="text-3xl font-extrabold text-gray-900 mt-2 mb-3">{featuredBook.title}</h2>
-              <p className="text-gray-500 font-medium mb-3">by {featuredBook.author}</p>
-              <p className="text-gray-700 leading-relaxed mb-6 line-clamp-4">{featuredBook.description}</p>
-              <div className="flex items-center gap-4">
-                <span className="text-4xl font-extrabold text-indigo-700">${featuredBook.price.toFixed(2)}</span>
-                <Link
-                  href={`/book/${featuredBook.id}`}
-                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-lg transition-colors"
-                >
-                  Get This Book <ArrowRight className="w-5 h-5" />
-                </Link>
+      <main>
+        {/* Hero */}
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-aurora" />
+          <div className="container relative grid items-center gap-12 py-20 lg:grid-cols-2 lg:py-28">
+            <div className="animate-fade-up">
+              <Badge variant="gold" className="mb-5">
+                <Sparkles className="mr-1 h-3 w-3" /> AI book creation studio
+              </Badge>
+              <h1 className="font-display text-4xl font-medium leading-[1.1] tracking-tight text-balance sm:text-5xl lg:text-6xl">
+                Turn your idea into a <span className="italic text-primary">complete book</span>
+              </h1>
+              <p className="mt-6 max-w-lg text-lg text-muted-foreground text-balance">
+                Describe what you want to write. EbooksHub plans the structure, writes every chapter, illustrates the
+                pages, and hands you a book you can edit, preview, and export — from a 5-page storybook to a
+                300-page novel.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button size="lg" variant="gold" asChild>
+                  <Link href="/signup">Create Your Book</Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <a href="#how-it-works">See How It Works</a>
+                </Button>
               </div>
+              <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm text-muted-foreground">
+                <span><strong className="text-foreground">5–300</strong> pages per book</span>
+                <span><strong className="text-foreground">12+</strong> languages</span>
+                <span><strong className="text-foreground">21</strong> book types</span>
+              </div>
+            </div>
+            <BookStack />
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how-it-works" className="border-t border-border/60 bg-paper py-24">
+          <div className="container">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">From idea to finished book</h2>
+              <p className="mt-3 text-muted-foreground">Four steps, with a real, editable draft at every stage.</p>
+            </div>
+            <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {STEPS.map((step, i) => (
+                <Card key={step.title} className="p-6">
+                  <span className="font-display text-3xl text-gold">{String(i + 1).padStart(2, "0")}</span>
+                  <h3 className="mt-4 font-display text-lg font-medium">{step.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{step.body}</p>
+                </Card>
+              ))}
             </div>
           </div>
         </section>
-      )}
 
-      {/* Books by Category */}
-      <section id="books" className="max-w-7xl mx-auto px-4 pb-20">
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-10 text-center">All Books</h2>
-        {(categories ?? []).map((cat: Category) => {
-          const catBooks = booksByCategory[cat.id] ?? []
-          if (catBooks.length === 0) return null
-          return (
-            <div key={cat.id} className="mb-14">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">{cat.name}</h3>
-                <Link href={`/categories/${cat.slug}`} className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium text-sm transition-colors">
-                  View all <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-                {catBooks.map((book: Book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
-              </div>
+        {/* Book categories */}
+        <section className="border-t border-border/60 py-24">
+          <div className="container">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Any kind of book</h2>
+              <p className="mt-3 text-muted-foreground">
+                Storybooks, novels, guides, memoirs, cookbooks — EbooksHub adapts structure and tone to what you&apos;re making.
+              </p>
             </div>
-          )
-        })}
-        {(!books || books.length === 0) && (
-          <div className="text-center py-20 text-gray-400">
-            <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
-            <p className="text-xl font-medium">Books coming soon!</p>
+            <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {BOOK_TYPES.slice(0, 12).map((type) => (
+                <div
+                  key={type.id}
+                  className="group rounded-xl border bg-card p-4 text-sm transition-colors hover:border-primary/40 hover:bg-muted/40"
+                >
+                  <p className="font-medium">{type.label}</p>
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{type.description}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              …plus fantasy, romance, mystery, poetry, comics, activity books, and more.
+            </p>
           </div>
-        )}
-      </section>
+        </section>
+
+        {/* Capabilities */}
+        <section id="capabilities" className="border-t border-border/60 bg-paper py-24">
+          <div className="container">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Built for whole books, not snippets</h2>
+              <p className="mt-3 text-muted-foreground">The parts that make a 200-page project actually hold together.</p>
+            </div>
+            <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {CAPABILITIES.map((cap) => (
+                <Card key={cap.title} className="p-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <cap.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="mt-4 font-display text-lg font-medium">{cap.title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{cap.body}</p>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Editor demo (illustrative, not a live product screenshot) */}
+        <section className="border-t border-border/60 py-24">
+          <div className="container grid items-center gap-12 lg:grid-cols-2">
+            <div>
+              <Badge variant="secondary" className="mb-4">The editor</Badge>
+              <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl text-balance">
+                A page-by-page editor built for books, not slides
+              </h2>
+              <p className="mt-4 text-muted-foreground">
+                Chapters and pages on the left, your manuscript in the center, formatting and the AI assistant on the
+                right. Autosave runs continuously, with full version history behind every change.
+              </p>
+              <ul className="mt-6 space-y-3 text-sm">
+                {["Drag to reorder chapters and pages", "Regenerate one illustration without touching the rest", "Select any text to rewrite, expand, or simplify it"].map(
+                  (item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <Feather className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      {item}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+            <Card className="overflow-hidden p-0 shadow-lift">
+              <div className="flex items-center gap-1.5 border-b bg-muted/40 px-4 py-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+                <span className="h-2.5 w-2.5 rounded-full bg-gold/70" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/60" />
+                <span className="ml-3 text-xs text-muted-foreground">The Lighthouse Beyond Time — Chapter 4</span>
+              </div>
+              <div className="grid grid-cols-[80px_1fr_90px] gap-px bg-border/60 sm:grid-cols-[100px_1fr_120px]">
+                <div className="space-y-2 bg-card p-3">
+                  {["Cover", "Contents", "Ch. 1", "Ch. 2", "Ch. 3", "Ch. 4"].map((p, i) => (
+                    <div key={p} className={`rounded-md px-2 py-1.5 text-[11px] ${i === 5 ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                      {p}
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2 bg-card p-4">
+                  <div className="h-2.5 w-2/3 rounded bg-muted" />
+                  <div className="h-2 w-full rounded bg-muted/70" />
+                  <div className="h-2 w-full rounded bg-muted/70" />
+                  <div className="h-2 w-5/6 rounded bg-muted/70" />
+                  <div className="h-2 w-full rounded bg-muted/70" />
+                  <div className="h-2 w-2/3 rounded bg-muted/70" />
+                </div>
+                <div className="space-y-2 bg-card p-3 text-[11px] text-muted-foreground">
+                  <p className="font-medium text-foreground">AI Assist</p>
+                  <div className="rounded-md border px-2 py-1.5">Continue writing</div>
+                  <div className="rounded-md border px-2 py-1.5">Expand</div>
+                  <div className="rounded-md border px-2 py-1.5">Change tone</div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </section>
+
+        {/* Showcase */}
+        <section className="border-t border-border/60 bg-paper py-24">
+          <div className="container">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">What you can make</h2>
+              <p className="mt-3 text-muted-foreground">Illustrative examples across a few of the 21 supported book types.</p>
+            </div>
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {SHOWCASE.map((book, i) => (
+                <div key={book.title} className="group">
+                  <div
+                    className={`flex aspect-[2/3] flex-col justify-between rounded-xl border p-4 shadow-soft transition-transform group-hover:-translate-y-1 ${
+                      ["bg-gradient-to-br from-primary to-primary/70 text-primary-foreground", "bg-gradient-to-br from-secondary to-secondary/70", "bg-gradient-to-br from-accent to-accent/70 text-accent-foreground", "bg-gradient-to-br from-gold to-gold/70 text-gold-foreground"][i % 4]
+                    }`}
+                  >
+                    <div className="h-1.5 w-8 rounded-full bg-white/40" />
+                    <p className="font-display text-base italic leading-snug text-balance">{book.title}</p>
+                  </div>
+                  <p className="mt-3 text-sm font-medium">{book.title}</p>
+                  <p className="text-xs text-muted-foreground">{book.type} · {book.pages} pages</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="border-t border-border/60 py-24">
+          <div className="container">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Simple, usage-based pricing</h2>
+              <p className="mt-3 text-muted-foreground">Start free. Upgrade when your books get longer or more frequent.</p>
+            </div>
+            <div className="mt-14 grid gap-6 lg:grid-cols-3">
+              {PLAN_TIERS.map((plan) => (
+                <Card key={plan.id} className={`flex flex-col p-8 ${plan.highlighted ? "border-primary shadow-lift ring-1 ring-primary/30" : ""}`}>
+                  {plan.highlighted && <Badge variant="gold" className="mb-4 w-fit">Most popular</Badge>}
+                  <h3 className="font-display text-xl font-medium">{plan.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+                  <p className="mt-6">
+                    <span className="font-display text-4xl font-medium">${plan.priceMonthly}</span>
+                    <span className="text-muted-foreground"> /month</span>
+                  </p>
+                  <ul className="mt-6 flex-1 space-y-3 text-sm">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2">
+                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Button className="mt-8" variant={plan.highlighted ? "gold" : "outline"} asChild>
+                    <Link href="/signup">{plan.id === "free" ? "Start free" : "Choose plan"}</Link>
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section id="faq" className="border-t border-border/60 bg-paper py-24">
+          <div className="container max-w-3xl">
+            <h2 className="text-center font-display text-3xl font-medium tracking-tight sm:text-4xl">Frequently asked questions</h2>
+            <Accordion type="single" collapsible className="mt-10">
+              {FAQS.map((item) => (
+                <AccordionItem key={item.q} value={item.q}>
+                  <AccordionTrigger className="text-left font-display text-base font-medium">{item.q}</AccordionTrigger>
+                  <AccordionContent>{item.a}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="border-t border-border/60 py-24">
+          <div className="container">
+            <Card className="relative overflow-hidden bg-primary p-12 text-center text-primary-foreground sm:p-16">
+              <div className="absolute inset-0 bg-aurora opacity-40" />
+              <div className="relative">
+                <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl text-balance">
+                  Your book is one idea away
+                </h2>
+                <p className="mx-auto mt-3 max-w-xl text-primary-foreground/80">
+                  Start free — no credit card required. Describe your idea and see your first blueprint in minutes.
+                </p>
+                <Button size="lg" variant="gold" className="mt-8" asChild>
+                  <Link href="/signup">Create Your Book</Link>
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </section>
+      </main>
+
+      <SiteFooter />
     </div>
   )
 }

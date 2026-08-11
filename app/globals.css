@@ -1,17 +1,132 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@layer base {
+  :root {
+    /* EbooksHub — warm, premium, editorial. Paper & ink with a candlelit-gold accent. */
+    --background: 36 42% 97%;
+    --foreground: 252 28% 12%;
+
+    --paper: 38 46% 95%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 252 28% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 252 28% 12%;
+
+    --primary: 255 42% 30%;
+    --primary-foreground: 40 55% 97%;
+
+    --secondary: 27 68% 54%;
+    --secondary-foreground: 252 30% 12%;
+
+    --muted: 34 24% 93%;
+    --muted-foreground: 250 10% 42%;
+
+    --accent: 351 58% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 4 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 32 22% 87%;
+    --input: 32 22% 87%;
+    --ring: 255 42% 30%;
+
+    --gold: 39 72% 55%;
+    --gold-foreground: 252 30% 12%;
+    --gold-start: 39 85% 62%;
+    --gold-end: 21 78% 56%;
+
+    --radius: 1rem;
+  }
+
+  :root[data-theme="dark"] {
+    --background: 250 32% 8%;
+    --foreground: 34 32% 95%;
+
+    --paper: 250 28% 10%;
+
+    --card: 250 26% 11%;
+    --card-foreground: 34 32% 95%;
+
+    --popover: 250 26% 11%;
+    --popover-foreground: 34 32% 95%;
+
+    --primary: 255 58% 72%;
+    --primary-foreground: 250 32% 10%;
+
+    --secondary: 28 72% 62%;
+    --secondary-foreground: 250 32% 10%;
+
+    --muted: 250 20% 16%;
+    --muted-foreground: 32 15% 68%;
+
+    --accent: 351 62% 66%;
+    --accent-foreground: 250 32% 10%;
+
+    --destructive: 4 62% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 250 20% 21%;
+    --input: 250 20% 21%;
+    --ring: 255 58% 72%;
+
+    --gold: 39 78% 62%;
+    --gold-foreground: 250 32% 10%;
+    --gold-start: 39 88% 66%;
+    --gold-end: 21 82% 60%;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: 250 32% 8%;
+      --foreground: 34 32% 95%;
+      --paper: 250 28% 10%;
+      --card: 250 26% 11%;
+      --card-foreground: 34 32% 95%;
+      --popover: 250 26% 11%;
+      --popover-foreground: 34 32% 95%;
+      --primary: 255 58% 72%;
+      --primary-foreground: 250 32% 10%;
+      --secondary: 28 72% 62%;
+      --secondary-foreground: 250 32% 10%;
+      --muted: 250 20% 16%;
+      --muted-foreground: 32 15% 68%;
+      --accent: 351 62% 66%;
+      --accent-foreground: 250 32% 10%;
+      --destructive: 4 62% 48%;
+      --destructive-foreground: 0 0% 100%;
+      --border: 250 20% 21%;
+      --input: 250 20% 21%;
+      --ring: 255 58% 72%;
+      --gold: 39 78% 62%;
+      --gold-foreground: 250 32% 10%;
+      --gold-start: 39 88% 66%;
+      --gold-end: 21 82% 60%;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  ::selection {
+    background: hsl(var(--gold) / 0.35);
+  }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist);
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .bg-paper {
+    background-color: hsl(var(--paper));
+  }
 }
