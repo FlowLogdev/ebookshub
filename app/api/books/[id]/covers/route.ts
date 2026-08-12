@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { getImageProvider } from "@/lib/ai/image-provider"
+import { generateImageWithFallback } from "@/lib/ai/image-provider"
 import { createClient } from "@/lib/supabase/server"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,11 +22,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 /**
- * Generates 4 cover concepts (spec section 12) using the image provider
- * abstraction (currently OpenAI gpt-image-1 — see lib/ai/image-provider.ts).
- * Images are stored inline as data: URIs for now; moving them to object
- * storage (Supabase Storage / S3) is a follow-up (spec section 43) that
- * only touches this route, not the provider interface.
+ * Generates 4 cover concepts (spec section 12) via the image provider
+ * fallback chain — Gemini first, then Higgsfield, then OpenAI gpt-image-1
+ * (see lib/ai/image-provider.ts). All 4 come from whichever provider
+ * actually succeeded, so the concepts stay stylistically consistent.
+ * Images are stored inline as data: URIs (or hosted URLs, provider-
+ * dependent) for now; moving them to object storage (Supabase Storage /
+ * S3) is a follow-up (spec section 43) that only touches this route.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -55,17 +57,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .join(" ")
 
   try {
-    const provider = getImageProvider()
-    const images = await provider.generateImage({ prompt, size: "1024x1536", count: 4 })
-    if (images.length === 0) throw new Error("The image provider returned no images.")
+    const { images, provider } = await generateImageWithFallback({ prompt, size: "1024x1536", count: 4 })
 
     const { data: covers, error } = await supabase
       .from("covers")
-      .insert(images.map((img) => ({ book_id: id, image_url: img.url, prompt, style: book.image_style })))
+      .insert(images.map((img) => ({ book_id: id, image_url: img.url, prompt, style: book.image_style, provider })))
       .select()
     if (error) throw error
 
-    return NextResponse.json({ covers })
+    return NextResponse.json({ covers, provider })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Cover generation failed." }, { status: 500 })
   }

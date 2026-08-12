@@ -1,4 +1,4 @@
-import { getTextProvider } from "@/lib/ai/text-provider"
+import { getTextProviderForBookType } from "@/lib/ai/text-router"
 import { bookTypeById } from "@/lib/book/constants"
 import {
   BookBlueprintSchema,
@@ -21,7 +21,7 @@ export interface ConceptInput {
 /** Step 1 of the pipeline (spec section 6): turn a free-text idea into a structured concept. */
 export async function generateBookConcept(input: ConceptInput): Promise<BookConcept> {
   const typeDef = bookTypeById(input.bookType)
-  const provider = getTextProvider()
+  const provider = getTextProviderForBookType(input.bookType)
 
   return provider.generateStructuredOutput({
     schemaName: "book_concept",
@@ -90,7 +90,7 @@ const DEFAULT_BACK_MATTER: Record<string, MatterSection[]> = {
 /** Step 2 of the pipeline: allocate the requested page count across front matter, chapters, and back matter. */
 export async function generateBookBlueprint(input: BlueprintInput): Promise<BookBlueprintDraft> {
   const typeDef = bookTypeById(input.bookType)
-  const provider = getTextProvider()
+  const provider = getTextProviderForBookType(input.bookType)
   const suggestedFront = DEFAULT_FRONT_MATTER[typeDef.density]
   const suggestedBack = DEFAULT_BACK_MATTER[typeDef.density]
 

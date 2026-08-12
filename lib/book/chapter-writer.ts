@@ -1,4 +1,4 @@
-import { getTextProvider } from "@/lib/ai/text-provider"
+import { getTextProviderForBookType } from "@/lib/ai/text-router"
 import { bookTypeById } from "@/lib/book/constants"
 import { ChapterContentSchema, type BookConcept, type ChapterContentResult } from "@/lib/book/schemas"
 import type { Database } from "@/lib/supabase/types"
@@ -25,7 +25,7 @@ export interface WriteChapterInput {
 export async function writeChapter(input: WriteChapterInput): Promise<ChapterContentResult> {
   const { book, chapter, concept } = input
   const typeDef = bookTypeById(book.book_type)
-  const provider = getTextProvider()
+  const provider = getTextProviderForBookType(book.book_type)
 
   const factsBySubject = groupFacts(input.bookBibleFacts)
 

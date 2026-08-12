@@ -36,8 +36,10 @@ Everything in this app is wired to a real backend — there are no fake buttons 
    ```
    - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — from your Supabase
      project settings.
-   - `ANTHROPIC_API_KEY` — required for every AI text feature (blueprint, chapters, writing assistant).
-   - `OPENAI_API_KEY` — required for cover generation. Everything else works without it.
+   - Text generation needs **at least one** of `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `OPENAI_API_KEY` set — see
+     [Multi-provider AI](#multi-provider-ai-text--images) below for how the app picks between them.
+   - Image generation needs **at least one** of `GEMINI_API_KEY`, `HIGGSFIELD_API_KEY_ID`+`HIGGSFIELD_API_KEY_SECRET`,
+     `OPENAI_API_KEY` set. Without any of them, cover generation is the only thing that won't work.
    - `JOB_WORKER_SECRET` — only needed if you set up a scheduled call to `/api/jobs/process` (see below); leave
      blank for local development.
 4. **Enable Google OAuth (optional)** in Supabase Auth providers if you want the "Continue with Google" button to
@@ -66,12 +68,43 @@ infrastructure the rest of the app doesn't need yet, so instead:
   calls `processNextTask()` from `lib/jobs/worker.ts` instead of hitting the HTTP route — the task/job state
   machine doesn't change.
 
+## Multi-provider AI (text & images)
+
+**Text — 3 providers, routed by book subject** (`lib/ai/text-provider.ts`, `lib/ai/text-router.ts`):
+
+| Provider | Used for | Model (env override) |
+|---|---|---|
+| Anthropic (Claude) | Creative/narrative: novels, children's books, fantasy, romance, mystery, sci-fi, poetry, memoir, biography. Also the fixed default for the in-editor AI writing assistant, regardless of book type. | `ANTHROPIC_MODEL` |
+| DeepSeek | Structured/technical: nonfiction, educational, business, self-help, cookbooks, history. OpenAI-compatible API. | `DEEPSEEK_MODEL` |
+| OpenAI (GPT) | General-purpose default: travel, comics, activity/coloring books, custom/unclassified. | `OPENAI_TEXT_MODEL` |
+
+The full mapping is the `TEXT_PROVIDER_BY_BOOK_TYPE` table in `lib/ai/text-router.ts` — it's plain data, not logic,
+so retuning which provider handles which genre is a one-line edit. `getTextProviderForBookType()` falls back
+through the other two configured providers (in a fixed order) if the preferred one's key is missing, and only
+throws if none of the three are set. A book's concept, blueprint, and every chapter all use the *same* provider
+(picked once, from `book_type`) so voice stays consistent within one book.
+
+**Images — 3 providers, tried in fallback order** (`lib/ai/image-provider.ts`):
+
+`Gemini` (`gemini-3.1-flash-image`, aka Nano Banana 2) → `Higgsfield` (Soul standard model, async job API) →
+`OpenAI` (`gpt-image-1`). `generateImageWithFallback()` tries each configured provider in that order and moves to
+the next on any failure, so all 4 cover concepts in one request come from the *same* provider (stays stylistically
+consistent) rather than mixing providers mid-request. Only throws if every configured provider fails.
+
+> **Known gap:** the Higgsfield integration's request shape is verified against their published OpenAPI spec, but
+> the exact field name holding the output image URL on a *completed* job wasn't confirmed from public docs at
+> integration time (their docs didn't expose a full example response). `extractImageUrls()` in
+> `lib/ai/image-provider.ts` defensively searches common field names (`images`, `output`, `result`, `url`, etc.)
+> and throws with the raw payload attached if none match — so a schema mismatch fails loudly instead of silently
+> returning a broken URL. Tighten it to the exact field once you've seen one real completed response.
+
 ## Architecture notes
 
-- **AI provider abstraction** (`lib/ai/text-provider.ts`, `lib/ai/image-provider.ts`) — every AI call goes through
-  `getTextProvider()` / `getImageProvider()`. Swapping models or vendors means writing one new class, not touching
-  call sites. Structured output (blueprints, chapter plans) uses Anthropic tool-use with a Zod schema, validated
-  before it ever reaches the database — never parsed from free-text prose.
+- **AI provider abstraction** — every AI call goes through a named provider resolved from `lib/ai/text-provider.ts`
+  / `lib/ai/image-provider.ts` rather than an SDK imported directly at the call site. Swapping models or vendors,
+  or adding a 4th provider, means writing one new class, not touching the blueprint engine, chapter writer, or
+  editor. Structured output (blueprints, chapter plans) uses each provider's native tool/function-calling with a
+  Zod schema, validated before it ever reaches the database — never parsed from free-text prose.
 - **Blueprint / page-planning engine** (`lib/book/blueprint.ts`) — turns a page-count target into front matter +
   chapters + back matter that actually sums close to the target, then proportionally rescales chapter budgets to
   correct drift rather than padding with filler pages.

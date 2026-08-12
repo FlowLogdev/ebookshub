@@ -237,6 +237,7 @@ export interface Database {
           image_url: string
           prompt: string | null
           style: string | null
+          provider: string | null
           is_selected: boolean
           created_at: string
         }
