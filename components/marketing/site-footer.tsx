@@ -36,7 +36,7 @@ export function SiteFooter() {
           <p className="font-medium">Company</p>
           <ul className="space-y-2 text-muted-foreground">
             <li><a href="#faq" className="hover:text-foreground">FAQ</a></li>
-            <li><a href="mailto:hello@ebookshub.com" className="hover:text-foreground">Contact</a></li>
+            <li><a href="mailto:hello@ebookhubs.com" className="hover:text-foreground">Contact</a></li>
           </ul>
         </div>
       </div>
