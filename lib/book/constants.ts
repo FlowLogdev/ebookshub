@@ -10,6 +10,11 @@ export const PAGE_LENGTH_PRESETS = [
 export const MIN_PAGE_COUNT = 5
 export const MAX_PAGE_COUNT = 300
 
+/** Free tier: one ebook per account, ever — see lib/plans/free-tier.ts. */
+export const FREE_TIER_MAX_PAGES = 5
+export const FREE_TIER_MAX_WORDS = 1000
+export const FREE_TIER_MAX_IMAGES = 5
+
 export type MatterDensity = "illustration_heavy" | "balanced" | "text_heavy"
 
 export interface BookTypeDef {

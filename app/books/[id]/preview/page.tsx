@@ -61,6 +61,10 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
           <Link href={`/books/${bookId}/edit`}><ArrowLeft className="h-4 w-4" /> Back to editor</Link>
         </Button>
         <p className="text-sm text-white/70">{book.title} — Preview</p>
+        <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10 hover:text-white">
+          <Link href={`/books/${bookId}/publish`}>Publish</Link>
+        </Button>
         <Select value={String(pageIndex)} onValueChange={(v) => setPageIndex(Number(v))}>
           <SelectTrigger className="w-48 border-white/20 bg-white/5 text-white"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -71,6 +75,7 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
             ))}
           </SelectContent>
         </Select>
+        </div>
       </header>
 
       <div className="flex flex-1 items-center justify-center gap-6 p-6">

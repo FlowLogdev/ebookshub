@@ -24,6 +24,7 @@ export interface Database {
           plan_id: string
           text_credits_remaining: number
           image_credits_remaining: number
+          free_ebook_used_at: string | null
           created_at: string
           updated_at: string
         }
@@ -73,6 +74,7 @@ export interface Database {
           status: BookStatus
           source_prompt: string | null
           selected_cover_id: string | null
+          is_free_tier: boolean
           created_at: string
           updated_at: string
         }
@@ -296,6 +298,26 @@ export interface Database {
           reason: string
         }
         Update: Partial<Database["public"]["Tables"]["usage_ledger"]["Row"]>
+        Relationships: []
+      }
+      canva_connections: {
+        Row: {
+          user_id: string
+          access_token_encrypted: string
+          refresh_token_encrypted: string
+          scope: string
+          expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: Partial<Database["public"]["Tables"]["canva_connections"]["Row"]> & {
+          user_id: string
+          access_token_encrypted: string
+          refresh_token_encrypted: string
+          scope: string
+          expires_at: string
+        }
+        Update: Partial<Database["public"]["Tables"]["canva_connections"]["Row"]>
         Relationships: []
       }
     }

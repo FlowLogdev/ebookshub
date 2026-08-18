@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { generateBookBlueprint, generateBookConcept, blueprintTotalPages, estimateWordsForPages } from "@/lib/book/blueprint"
+import { generateBookBlueprint, generateBookConcept, blueprintTotalPages, capChapterWords, estimateWordsForPages } from "@/lib/book/blueprint"
 import { writeChapter } from "@/lib/book/chapter-writer"
-import { bookTypeById } from "@/lib/book/constants"
+import { bookTypeById, FREE_TIER_MAX_WORDS } from "@/lib/book/constants"
 import type { BookConcept } from "@/lib/book/schemas"
 import type { Database } from "@/lib/supabase/types"
 
@@ -129,6 +129,7 @@ async function runPlanBlueprint(supabase: TypedClient, bookId: string) {
     pageCountTarget: book.page_count_target,
     targetAudience: book.target_audience ?? undefined,
     tone: book.tone ?? undefined,
+    isFreeTier: book.is_free_tier,
   })
 
   const draft = await generateBookBlueprint({
@@ -136,6 +137,7 @@ async function runPlanBlueprint(supabase: TypedClient, bookId: string) {
     pageCountTarget: book.page_count_target,
     language: book.language,
     concept,
+    isFreeTier: book.is_free_tier,
   })
 
   const typeDef = bookTypeById(book.book_type)
@@ -156,6 +158,9 @@ async function runPlanBlueprint(supabase: TypedClient, bookId: string) {
     .single()
   if (blueprintError || !blueprint) throw blueprintError ?? new Error("Failed to save blueprint")
 
+  const estimatedWords = draft.chapters.map((chapter) => estimateWordsForPages(chapter.targetPages, typeDef.density))
+  const targetWords = book.is_free_tier ? capChapterWords(estimatedWords, FREE_TIER_MAX_WORDS) : estimatedWords
+
   const chapterRows = draft.chapters.map((chapter, i) => ({
     book_id: bookId,
     blueprint_id: blueprint.id,
@@ -165,7 +170,7 @@ async function runPlanBlueprint(supabase: TypedClient, bookId: string) {
     subtitle: chapter.subtitle ?? null,
     summary: chapter.summary,
     target_pages: chapter.targetPages,
-    target_words: estimateWordsForPages(chapter.targetPages, typeDef.density),
+    target_words: targetWords[i],
     status: "waiting" as const,
   }))
 

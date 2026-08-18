@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { MAX_PAGE_COUNT, MIN_PAGE_COUNT } from "@/lib/book/constants"
+import { FREE_TIER_MAX_PAGES, MAX_PAGE_COUNT, MIN_PAGE_COUNT } from "@/lib/book/constants"
 import { enqueueBlueprintJob } from "@/lib/jobs/create-jobs"
+import { claimFreeTierSlot, isFreePlan, upgradeRequired } from "@/lib/plans/free-tier"
 import { createClient } from "@/lib/supabase/server"
 
 const CreateBookSchema = z.object({
@@ -49,6 +50,26 @@ export async function POST(req: Request) {
   }
   const input = parsed.data
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("plan_id, free_ebook_used_at")
+    .eq("id", user.id)
+    .single()
+  if (profileError || !profile) {
+    return NextResponse.json({ error: profileError?.message ?? "Failed to load account." }, { status: 500 })
+  }
+
+  const freeTier = isFreePlan(profile)
+  if (freeTier) {
+    const claimed = await claimFreeTierSlot(supabase, user.id)
+    if (!claimed) {
+      return NextResponse.json(
+        upgradeRequired("You've already used your free ebook. Upgrade to create another one."),
+        { status: 403 },
+      )
+    }
+  }
+
   const { data: book, error } = await supabase
     .from("books")
     .insert({
@@ -59,17 +80,20 @@ export async function POST(req: Request) {
       language: input.language,
       target_audience: input.targetAudience ?? null,
       tone: input.tone ?? null,
-      page_count_target: input.pageCountTarget,
+      page_count_target: freeTier ? Math.min(input.pageCountTarget, FREE_TIER_MAX_PAGES) : input.pageCountTarget,
       image_style: input.imageStyle ?? null,
       illustration_frequency: input.illustrationFrequency ?? null,
       dimensions: input.dimensions ?? "6x9",
       source_prompt: input.prompt,
       status: "draft",
+      is_free_tier: freeTier,
     })
     .select()
     .single()
 
   if (error || !book) {
+    // Best-effort: don't strand the user's one-time free slot on a failed insert.
+    if (freeTier) await supabase.from("profiles").update({ free_ebook_used_at: null }).eq("id", user.id)
     return NextResponse.json({ error: error?.message ?? "Failed to create book." }, { status: 500 })
   }
 

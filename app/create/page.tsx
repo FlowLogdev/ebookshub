@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
@@ -16,13 +16,20 @@ import {
   BOOK_DIMENSIONS,
   BOOK_LANGUAGES,
   BOOK_TYPES,
+  FREE_TIER_MAX_IMAGES,
+  FREE_TIER_MAX_PAGES,
+  FREE_TIER_MAX_WORDS,
   ILLUSTRATION_FREQUENCIES,
   IMAGE_STYLES,
   MAX_PAGE_COUNT,
   MIN_PAGE_COUNT,
   PAGE_LENGTH_PRESETS,
 } from "@/lib/book/constants"
+import { UPGRADE_URL } from "@/lib/plans/free-tier"
+import type { Database } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
+
+type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 
 const STEP_LABELS = ["What would you like to create?", "Describe your idea", "Book details"]
 
@@ -30,6 +37,8 @@ export default function CreateBookPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   const [bookType, setBookType] = useState<string | null>(null)
   const [prompt, setPrompt] = useState("")
@@ -44,6 +53,21 @@ export default function CreateBookPage() {
   const [dimensions, setDimensions] = useState("6x9")
 
   const selectedType = useMemo(() => BOOK_TYPES.find((t) => t.id === bookType), [bookType])
+
+  const isFreePlan = profile?.plan_id === "free"
+  const freeSlotUsed = isFreePlan && profile?.free_ebook_used_at != null
+
+  useEffect(() => {
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.profile) {
+          setProfile(data.profile)
+          if (data.profile.plan_id === "free") setPageCount(FREE_TIER_MAX_PAGES)
+        }
+      })
+      .finally(() => setProfileLoading(false))
+  }, [])
 
   function goNext() {
     if (step === 1 && !bookType) {
@@ -78,6 +102,11 @@ export default function CreateBookPage() {
         }),
       })
       const data = await res.json()
+      if (res.status === 403 && data.upgradeRequired) {
+        toast.error(data.error, { action: { label: "Upgrade", onClick: () => router.push(data.upgradeUrl ?? UPGRADE_URL) } })
+        setSubmitting(false)
+        return
+      }
       if (!res.ok && res.status !== 207) throw new Error(data.error ?? "Something went wrong.")
       const jobQuery = data.jobId ? `?job=${data.jobId}` : ""
       router.push(`/books/${data.book.id}/outline${jobQuery}`)
@@ -85,6 +114,34 @@ export default function CreateBookPage() {
       toast.error(err instanceof Error ? err.message : "Failed to start your book.")
       setSubmitting(false)
     }
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-paper">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (freeSlotUsed) {
+    return (
+      <div className="min-h-screen bg-paper">
+        <header className="container flex h-16 items-center justify-between">
+          <Logo />
+        </header>
+        <div className="container flex max-w-lg flex-col items-center pb-24 pt-16 text-center">
+          <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">You&apos;ve used your free ebook</h1>
+          <p className="mt-3 text-muted-foreground">
+            The Free plan includes one ebook per account (up to {FREE_TIER_MAX_PAGES} pages, {FREE_TIER_MAX_WORDS} words, and{" "}
+            {FREE_TIER_MAX_IMAGES} images). Upgrade to create more books with longer lengths and premium models.
+          </p>
+          <Button variant="gold" className="mt-6" onClick={() => router.push(UPGRADE_URL)}>
+            See upgrade options
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -102,6 +159,17 @@ export default function CreateBookPage() {
         </div>
 
         <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">{STEP_LABELS[step - 1]}</h1>
+
+        {isFreePlan && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Free plan: up to {FREE_TIER_MAX_PAGES} pages, {FREE_TIER_MAX_WORDS} words, and {FREE_TIER_MAX_IMAGES} images on your one free
+            ebook.{" "}
+            <button type="button" className="underline underline-offset-2" onClick={() => router.push(UPGRADE_URL)}>
+              Upgrade for longer books
+            </button>
+            .
+          </p>
+        )}
 
         {step === 1 && (
           <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -147,6 +215,12 @@ export default function CreateBookPage() {
           <div className="mt-8 space-y-8">
             <div>
               <Label className="mb-3 block">How long should the book be?</Label>
+              {isFreePlan ? (
+                <p className="text-sm text-muted-foreground">
+                  Your free ebook is fixed at {FREE_TIER_MAX_PAGES} pages (~{FREE_TIER_MAX_WORDS} words). Upgrade for books up to{" "}
+                  {MAX_PAGE_COUNT} pages.
+                </p>
+              ) : (
               <div className="flex flex-wrap gap-2">
                 {PAGE_LENGTH_PRESETS.map((n) => (
                   <button
@@ -165,6 +239,8 @@ export default function CreateBookPage() {
                   </button>
                 ))}
               </div>
+              )}
+              {!isFreePlan && (
               <div className="mt-3 flex items-center gap-3">
                 <Label htmlFor="custom-pages" className="text-sm text-muted-foreground">
                   Custom ({MIN_PAGE_COUNT}–{MAX_PAGE_COUNT}):
@@ -186,6 +262,7 @@ export default function CreateBookPage() {
                 />
                 <span className="text-sm text-muted-foreground">Selected: {pageCount} pages</span>
               </div>
+              )}
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2">

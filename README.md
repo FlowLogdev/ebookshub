@@ -116,6 +116,77 @@ consistent) rather than mixing providers mid-request. Only throws if every confi
   (directly or via a join). Route handlers use the user's own session-scoped Supabase client wherever possible;
   only the job worker's cron mode uses the service-role client.
 
+## Canva integration (OAuth 2.0, no static API key)
+
+Canva issues no permanent API key — every request runs as a user who has explicitly connected their
+Canva account via OAuth 2.0 Authorization Code + PKCE. The flow:
+
+1. `GET /api/canva/connect` — signed-in user only. Generates a PKCE verifier/challenge and CSRF `state`,
+   stashes them in a short-lived (10 min) httpOnly cookie scoped to `/api/canva`, and redirects to Canva's
+   authorize URL (`lib/canva/oauth.ts`).
+2. Canva redirects back to `GET /api/canva/callback` with `code` and `state`. The route checks `state`
+   against the cookie, exchanges `code` for tokens (Basic-auth'd with `CANVA_CLIENT_ID`/`CANVA_CLIENT_SECRET`),
+   and stores the result via `saveConnection()`.
+3. Access/refresh tokens are AES-256-GCM encrypted (`lib/canva/crypto.ts`, key from
+   `CANVA_TOKEN_ENCRYPTION_KEY`) before they're written to `canva_connections` — a table with RLS that only
+   lets a user read/delete their own row; inserts/updates go through the service-role client since token
+   exchange needs the client secret.
+4. `getValidAccessToken()` / `canvaFetch()` (`lib/canva/client.ts`) transparently refresh the token when it's
+   near expiry and persist the rotated pair, so callers never handle refresh logic themselves.
+
+`GET /api/canva/status` reports whether the current user is connected; `POST /api/canva/disconnect` removes
+their row. Set up an integration at the [Canva Developer Portal](https://www.canva.com/developers), add the
+redirect URL from `CANVA_REDIRECT_URI`, and enable the `design:meta:read`, `design:content:read`,
+`design:content:write`, `asset:read`, `asset:write` scopes.
+
+## Free tier: one ebook per account
+
+The Free plan is a one-time trial, not a recurring allowance. `POST /api/books` atomically claims a
+`profiles.free_ebook_used_at` slot the moment a free-plan account starts a book (`lib/plans/free-tier.ts`) — a
+second attempt gets a 403 with `{ upgradeRequired: true, upgradeUrl: "/#pricing" }` instead of a new book, and
+`app/create/page.tsx` shows an upgrade screen instead of the wizard once that slot is used. The book itself is
+capped at `FREE_TIER_MAX_PAGES` (5 pages) / `FREE_TIER_MAX_WORDS` (1,000 words total) / `FREE_TIER_MAX_IMAGES` (5
+cover images, one generation call ever) — see `lib/book/constants.ts`. Those caps are enforced at generation time,
+not just at the door: `books.is_free_tier` flows into `generateBookConcept` / `generateBookBlueprint`
+(`lib/book/blueprint.ts`) to force minimal front/back matter and the cheapest configured text provider/model
+(`getFreeTierTextProvider()` in `lib/ai/text-router.ts` — DeepSeek first, since it's the cheapest of the three per
+token), `capChapterWords()` rescales each chapter's word target so the book totals ≤1,000 words, and
+`app/api/books/[id]/covers/route.ts` rejects a second cover-generation call for a free-tier book.
+
+## Exports & Kindle publishing assistant (Pro plan only)
+
+`GET /api/books/[id]/export?format=pdf|docx|epub` — PDF (`lib/export/pdf.ts`, via `pdfkit`), Word
+(`lib/export/docx.ts`, via `docx`), and a hand-rolled Kindle-ready EPUB3 (`lib/export/epub.ts`, via `jszip`, with an
+EPUB2 `toc.ncx` alongside for older-reader compatibility) all render from the same Markdown block parser
+(`lib/export/markdown.ts`) so headings/bold/italic/lists come out consistent across formats. Gated to
+`profile.plan_id === "pro"` — Free and Creator get `{ upgradeRequired: true }`.
+
+`POST /api/books/[id]/kdp-assistant` — an OpenAI-powered chat (`lib/ai/kdp-assistant.ts`) that walks a Pro user
+through publishing on Amazon KDP (account setup, metadata, cover, pricing/royalty, review timeline). This is
+guidance only, not automation — Amazon has no public API for KDP uploads, so the assistant tells the user what to
+do on kdp.amazon.com and they do the clicking. Stateless: the client resends the full message history each turn,
+same as a typical chat UI; nothing is persisted server-side. Also Pro-only, same gate as exports.
+
+## Browser co-pilot extension (Pro plan only)
+
+A Manifest V3 Chrome extension (`extension/`, see `extension/README.md`) — "EbooksHub Assistant" — that watches
+whatever page the user is on (Amazon KDP, Draft2Digital, IngramSpark) and tells them in a side panel what to
+click or type next, using Claude vision on a screenshot of the active tab. **Look-and-tell only — it never fills
+a field or clicks anything itself.** That's a deliberate scope decision, not a gap: Amazon's Conditions of Use
+prohibit bot access to their site, and KDP signup handles tax/bank data, so autonomous form-filling there is a
+real ToS and liability risk. See `extension/README.md` for the full reasoning and how to revisit it if the
+product direction changes.
+
+The extension has no cookies for this site, so it authenticates differently from everything else here:
+`app/extension/connect/page.tsx` runs in the user's normal logged-in tab, mints a 12-hour token via
+`POST /api/extension/token` (`lib/copilot/token.ts`, HMAC-signed, Pro-gated), and hands it to the extension
+through `chrome.runtime.sendMessage` (enabled by the extension's `externally_connectable` manifest entry, which
+only trusts this site's origin). The extension then calls `POST /api/copilot/suggest` with that bearer token —
+verified independently of the cookie-based Supabase session everything else uses, via a service-role Supabase
+client since there's no user session to scope RLS to.
+
+Both are surfaced together on `app/books/[id]/publish/page.tsx`, linked from the preview page's "Publish" button.
+
 ## Roadmap — what Phase 1 intentionally leaves out
 
 This app follows the phased build order from the original product spec. Phase 1 covers the foundation, the
@@ -126,11 +197,11 @@ creation wizard, the blueprint engine, chapter generation, the editor, and cover
 - **Full illustration system** (§10–11) — cover generation is real; per-page illustration generation, styles, and
   an image editor (regenerate/variation/inpainting) are not built.
 - **Glossary & TOC generation UI** (§14–15) — `glossary_terms` table exists; no generator or editor yet.
-- **Multi-format export** (§24) — PDF/ePub/DOCX export engines are not implemented; today's "export" is the
-  in-app preview only.
 - **Proofreading passes, quality modes, cost/budget estimation** (§30, §50, §64) — not implemented.
-- **Stripe billing, credit metering, plan enforcement** (§39–41) — `plans` table is seeded; no Stripe integration,
-  no credit deduction on generation yet (the columns exist on `profiles` but aren't enforced).
+- **Stripe billing, credit metering** (§39–41) — `plans` table is seeded and the Free-tier one-ebook gate and
+  Pro-only export/KDP-assistant gate are both enforced (see above), but there's no Stripe checkout/webhook yet to
+  actually move an account from Free to Creator/Pro, and word/image *credit* deduction (as opposed to the flat
+  free-tier caps) isn't implemented.
 - **Community library, sharing/collaboration, admin dashboard, analytics** (§36, §52–55) — not started.
 - **Translation, multi-quality-mode generation, self-publishing export presets** (§5, §25–26, §64) — not started.
 

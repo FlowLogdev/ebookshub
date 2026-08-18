@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EbooksHub Assistant</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header class="header">
+    <span class="brand">EbooksHub Assistant</span>
+    <button id="reconnectBtn" class="link-btn" hidden>Reconnect</button>
+  </header>
+
+  <main id="app">
+    <section id="connectView" class="state-view" hidden>
+      <p class="lead">Connect your EbooksHub account to get step-by-step help on Amazon KDP and other publishing sites.</p>
+      <button id="connectBtn" class="primary-btn">Connect account</button>
+      <p class="hint">Opens ebookhubs.com in a new tab. Requires the Pro plan.</p>
+    </section>
+
+    <section id="chatView" class="state-view" hidden>
+      <div id="messages" class="messages">
+        <p class="empty-hint">Ask about anything on this page — account setup, a confusing form field, what a
+          button does. I'll tell you what to click or type; you stay in control.</p>
+      </div>
+      <form id="chatForm" class="composer">
+        <textarea id="chatInput" placeholder="What do you need help with on this page?" rows="2"></textarea>
+        <button type="submit" id="sendBtn" class="primary-btn">Ask</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

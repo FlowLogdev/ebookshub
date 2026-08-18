@@ -1,4 +1,4 @@
-import { getTextProviderForBookType } from "@/lib/ai/text-router"
+import { getFreeTierTextProvider, getTextProviderForBookType } from "@/lib/ai/text-router"
 import { bookTypeById } from "@/lib/book/constants"
 import { ChapterContentSchema, type BookConcept, type ChapterContentResult } from "@/lib/book/schemas"
 import type { Database } from "@/lib/supabase/types"
@@ -25,7 +25,7 @@ export interface WriteChapterInput {
 export async function writeChapter(input: WriteChapterInput): Promise<ChapterContentResult> {
   const { book, chapter, concept } = input
   const typeDef = bookTypeById(book.book_type)
-  const provider = getTextProviderForBookType(book.book_type)
+  const provider = book.is_free_tier ? getFreeTierTextProvider() : getTextProviderForBookType(book.book_type)
 
   const factsBySubject = groupFacts(input.bookBibleFacts)
 
@@ -69,6 +69,7 @@ export async function writeChapter(input: WriteChapterInput): Promise<ChapterCon
       .join("\n\n"),
     maxTokens: 8000,
     temperature: 0.85,
+    model: book.is_free_tier ? "fast" : "default",
   })
 }
 

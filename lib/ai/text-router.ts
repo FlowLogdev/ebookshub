@@ -62,3 +62,22 @@ export function getTextProviderForBookType(bookTypeId: string): TextGenerationPr
   }
   return getNamedTextProvider(configured)
 }
+
+/** Cheapest-first order, independent of book type — used for free-tier generation. */
+const FREE_TIER_PROVIDER_ORDER: TextProviderName[] = ["deepseek", "openai", "anthropic"]
+
+/**
+ * Free tier always writes with whichever configured provider is cheapest
+ * (DeepSeek's per-token pricing undercuts the other two by a wide margin),
+ * ignoring the normal subject-based routing above. Combine with
+ * `model: "fast"` on the generate call for the smallest model each provider offers.
+ */
+export function getFreeTierTextProvider(): TextGenerationProvider {
+  const configured = FREE_TIER_PROVIDER_ORDER.find(isTextProviderConfigured)
+  if (!configured) {
+    throw new Error(
+      "No text-generation provider is configured. Set at least one of ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY.",
+    )
+  }
+  return getNamedTextProvider(configured)
+}

@@ -1,4 +1,4 @@
-import { getTextProviderForBookType } from "@/lib/ai/text-router"
+import { getFreeTierTextProvider, getTextProviderForBookType } from "@/lib/ai/text-router"
 import { bookTypeById } from "@/lib/book/constants"
 import {
   BookBlueprintSchema,
@@ -16,12 +16,14 @@ export interface ConceptInput {
   pageCountTarget: number
   targetAudience?: string
   tone?: string
+  /** Free tier: routes to the cheapest configured provider/model instead of the subject-based pick. */
+  isFreeTier?: boolean
 }
 
 /** Step 1 of the pipeline (spec section 6): turn a free-text idea into a structured concept. */
 export async function generateBookConcept(input: ConceptInput): Promise<BookConcept> {
   const typeDef = bookTypeById(input.bookType)
-  const provider = getTextProviderForBookType(input.bookType)
+  const provider = input.isFreeTier ? getFreeTierTextProvider() : getTextProviderForBookType(input.bookType)
 
   return provider.generateStructuredOutput({
     schemaName: "book_concept",
@@ -44,6 +46,7 @@ export async function generateBookConcept(input: ConceptInput): Promise<BookConc
       .join("\n"),
     maxTokens: 2000,
     temperature: 0.9,
+    model: input.isFreeTier ? "fast" : "default",
   })
 }
 
@@ -52,6 +55,8 @@ export interface BlueprintInput {
   pageCountTarget: number
   language: string
   concept: BookConcept
+  /** Free tier: cheapest provider/model, and a single Title Page as the only front/back matter. */
+  isFreeTier?: boolean
 }
 
 const DEFAULT_FRONT_MATTER: Record<string, MatterSection[]> = {
@@ -90,9 +95,12 @@ const DEFAULT_BACK_MATTER: Record<string, MatterSection[]> = {
 /** Step 2 of the pipeline: allocate the requested page count across front matter, chapters, and back matter. */
 export async function generateBookBlueprint(input: BlueprintInput): Promise<BookBlueprintDraft> {
   const typeDef = bookTypeById(input.bookType)
-  const provider = getTextProviderForBookType(input.bookType)
-  const suggestedFront = DEFAULT_FRONT_MATTER[typeDef.density]
-  const suggestedBack = DEFAULT_BACK_MATTER[typeDef.density]
+  const provider = input.isFreeTier ? getFreeTierTextProvider() : getTextProviderForBookType(input.bookType)
+  // Free-tier books are capped at 5 pages / 1,000 words total — a full front/back matter
+  // set (title + copyright + dedication + TOC + intro, etc.) would eat most of that budget
+  // before a single word of actual content gets written, so trim it to just a title page.
+  const suggestedFront = input.isFreeTier ? [{ section: "title_page", label: "Title Page", pages: 1 }] : DEFAULT_FRONT_MATTER[typeDef.density]
+  const suggestedBack = input.isFreeTier ? [] : DEFAULT_BACK_MATTER[typeDef.density]
 
   const draft = await provider.generateStructuredOutput({
     schemaName: "book_blueprint",
@@ -103,17 +111,21 @@ export async function generateBookBlueprint(input: BlueprintInput): Promise<Book
       "and a chapter-by-chapter outline with a page budget for each chapter. The sum of every section's pages " +
       "(front matter + all chapters + back matter) must be as close as possible to the target page count — " +
       "never pad with filler, and never wildly overshoot or undershoot. Only include sections appropriate for " +
-      "this book type; do not add a glossary or references to a novel, for example, unless it genuinely fits.",
+      "this book type; do not add a glossary or references to a novel, for example, unless it genuinely fits." +
+      (input.isFreeTier
+        ? " This is a short free-trial book — use ONLY the single Title Page listed below as front matter and " +
+          "NO back matter at all, so almost every page goes to the actual chapters."
+        : ""),
     prompt: [
       `Book type: ${typeDef.label} — content density: ${typeDef.density.replace("_", " ")}`,
-      typeDef.suggestsGlossary ? "This book type commonly benefits from a glossary." : null,
-      typeDef.suggestsReferences ? "This book type commonly benefits from references/resources." : null,
+      typeDef.suggestsGlossary && !input.isFreeTier ? "This book type commonly benefits from a glossary." : null,
+      typeDef.suggestsReferences && !input.isFreeTier ? "This book type commonly benefits from references/resources." : null,
       `Target total page count: ${input.pageCountTarget}`,
       `Language: ${input.language}`,
       "",
-      "Typical front matter for this type of book (adjust as needed):",
+      input.isFreeTier ? "Front matter to use exactly as given:" : "Typical front matter for this type of book (adjust as needed):",
       JSON.stringify(suggestedFront),
-      "Typical back matter for this type of book (adjust as needed):",
+      input.isFreeTier ? "Back matter to use exactly as given:" : "Typical back matter for this type of book (adjust as needed):",
       JSON.stringify(suggestedBack),
       "",
       "Book concept:",
@@ -123,6 +135,7 @@ export async function generateBookBlueprint(input: BlueprintInput): Promise<Book
       .join("\n"),
     maxTokens: 4000,
     temperature: 0.6,
+    model: input.isFreeTier ? "fast" : "default",
   })
 
   return normalizeBlueprintPages(draft, input.pageCountTarget)
@@ -172,4 +185,19 @@ export function blueprintTotalPages(draft: BookBlueprintDraft): number {
 export function estimateWordsForPages(pages: number, density: "illustration_heavy" | "balanced" | "text_heavy"): number {
   const wordsPerPage = density === "illustration_heavy" ? 60 : density === "balanced" ? 280 : 380
   return pages * wordsPerPage
+}
+
+/**
+ * Rescales a set of per-chapter word targets so they sum to at most `totalWordCap`
+ * (used to enforce the free tier's 1,000-word ceiling regardless of what the
+ * density-based per-page estimate would otherwise produce). Every chapter keeps a
+ * floor of 40 words so short chapters don't get scaled down to nothing.
+ */
+export function capChapterWords(wordTargets: number[], totalWordCap: number): number[] {
+  const total = wordTargets.reduce((sum, w) => sum + w, 0)
+  if (total <= totalWordCap || total === 0) return wordTargets
+
+  const floor = 40
+  const scale = totalWordCap / total
+  return wordTargets.map((w) => Math.max(floor, Math.round(w * scale)))
 }

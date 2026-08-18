@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "EbooksHub Assistant",
+  "version": "1.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv4n6W/ZdCt2cBlom+zueNbtpuN8LOYAMCvO/PPP1+s5mIa41kw5+LzPYhwKAb4wJpXof933soVpoDYAne3vk1X82oAdj8MVA6UGfS1e5UebpZMfbRu1THHhx9FHwbo2Spk3uY6APTeWaDBFSwBY7w0wWLBz99XQKzraDko6Q887IucH13SD186WFzP0ESqNQZFpYo6rAlS4RJYDhjEEY8iikF37EQPMQuEjb5QJC0C6bEszFBr4Wzfh2Ey/yZXlEDEHaWpppHtSjx8v2UPKIsXxxmFkkbWe4SDmdvoGE9/6dZKJmRGoIW3WQTz0BwivlG7sa/Yl0hEUfJ2Wmx7/9TQIDAQAB",
+  "description": "Step-by-step help getting your EbooksHub book set up and published on Amazon Kindle and other platforms. Tells you what to click and type — you stay in control.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Open EbooksHub Assistant"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "permissions": ["storage", "activeTab", "scripting", "sidePanel"],
+  "host_permissions": [
+    "https://ebookhubs.com/*",
+    "http://localhost:3000/*",
+    "https://*.amazon.com/*",
+    "https://kdp.amazon.com/*",
+    "https://*.draft2digital.com/*",
+    "https://*.ingramspark.com/*"
+  ],
+  "externally_connectable": {
+    "matches": ["https://ebookhubs.com/*", "http://localhost:3000/*"]
+  }
+}
