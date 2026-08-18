@@ -74,7 +74,7 @@ infrastructure the rest of the app doesn't need yet, so instead:
 
 | Provider | Used for | Model (env override) |
 |---|---|---|
-| Anthropic (Claude) | Creative/narrative: novels, children's books, fantasy, romance, mystery, sci-fi, poetry, memoir, biography. Also the fixed default for the in-editor AI writing assistant, regardless of book type. | `ANTHROPIC_MODEL` |
+| Anthropic | Creative/narrative: novels, children's books, fantasy, romance, mystery, sci-fi, poetry, memoir, biography. Also the fixed default for the in-editor AI writing assistant, regardless of book type. | `ANTHROPIC_MODEL` |
 | DeepSeek | Structured/technical: nonfiction, educational, business, self-help, cookbooks, history. OpenAI-compatible API. | `DEEPSEEK_MODEL` |
 | OpenAI (GPT) | General-purpose default: travel, comics, activity/coloring books, custom/unclassified. | `OPENAI_TEXT_MODEL` |
 
@@ -179,7 +179,7 @@ same as a typical chat UI; nothing is persisted server-side. Also Pro-only, same
 
 A Manifest V3 Chrome extension (`extension/`, see `extension/README.md`) — "EbooksHub Assistant" — that watches
 whatever page the user is on (Amazon KDP, Draft2Digital, IngramSpark) and tells them in a side panel what to
-click or type next, using Claude vision on a screenshot of the active tab. **Look-and-tell only — it never fills
+click or type next, using Anthropic's vision model on a screenshot of the active tab. **Look-and-tell only — it never fills
 a field or clicks anything itself.** That's a deliberate scope decision, not a gap: Amazon's Conditions of Use
 prohibit bot access to their site, and KDP signup handles tax/bank data, so autonomous form-filling there is a
 real ToS and liability risk. See `extension/README.md` for the full reasoning and how to revisit it if the

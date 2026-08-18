@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { BookOpen, Loader2, Plus } from "lucide-react"
+import { BookOpen, Plus } from "lucide-react"
 
 import { BookCard, type DashboardBook } from "@/components/dashboard/book-card"
 import { DashboardTopbar } from "@/components/dashboard/topbar"
+import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
@@ -48,7 +49,7 @@ export default function DashboardPage() {
       <DashboardTopbar />
 
       <div className="container py-10">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Reveal className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-2xl font-medium tracking-tight">Welcome back{firstName ? `, ${firstName}` : ""}</h1>
             <p className="mt-1 text-sm text-muted-foreground">Pick up a project or start something new.</p>
@@ -60,21 +61,25 @@ export default function DashboardPage() {
               ))}
             </TabsList>
           </Tabs>
-        </div>
+        </Reveal>
 
         <div className="mt-8">
           {loading ? (
-            <div className="flex justify-center py-24">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <EmptyState hasAnyBooks={books.length > 0} />
           ) : (
-            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <RevealGroup className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filtered.map((book) => (
-                <BookCard key={book.id} book={book} onChanged={load} />
+                <RevealItem key={book.id}>
+                  <BookCard book={book} onChanged={load} />
+                </RevealItem>
               ))}
-            </div>
+            </RevealGroup>
           )}
         </div>
       </div>
@@ -84,7 +89,7 @@ export default function DashboardPage() {
 
 function EmptyState({ hasAnyBooks }: { hasAnyBooks: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed py-24 text-center">
+    <Reveal className="flex flex-col items-center gap-4 rounded-2xl border border-dashed py-24 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
         <BookOpen className="h-6 w-6 text-muted-foreground" />
       </div>
@@ -97,6 +102,6 @@ function EmptyState({ hasAnyBooks }: { hasAnyBooks: boolean }) {
       <Button variant="gold" asChild>
         <Link href="/create"><Plus className="h-4 w-4" /> Create New Book</Link>
       </Button>
-    </div>
+    </Reveal>
   )
 }

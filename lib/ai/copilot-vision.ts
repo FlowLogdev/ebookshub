@@ -10,7 +10,7 @@ import Anthropic from "@anthropic-ai/sdk"
 // reply, this function is the only thing that "sees" it.
 //
 // Deliberately calls Anthropic directly rather than going through
-// lib/ai/text-router.ts: vision input is Claude-specific here, and (like
+// lib/ai/text-router.ts: vision input is Anthropic-specific here, and (like
 // lib/ai/kdp-assistant.ts) this is a support/chat use case, not book
 // authorship, so the subject-based provider routing doesn't apply.
 

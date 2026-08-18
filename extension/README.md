@@ -33,7 +33,7 @@ don't drift into it by adding `chrome.scripting` click/fill calls to `background
 - **Page context**: when the user asks something in the side panel, `background.js` captures a screenshot
   (`chrome.tabs.captureVisibleTab`) and the page's visible text (`chrome.scripting.executeScript`) of the
   active tab, and `sidepanel.js` POSTs both plus the bearer token to `POST /api/copilot/suggest`.
-- **The model**: `lib/ai/copilot-vision.ts` calls Claude directly (vision input — screenshot) with a system
+- **The model**: `lib/ai/copilot-vision.ts` calls Anthropic directly (vision input — screenshot) with a system
   prompt that hard-restricts it to describing what the *user* should do, in second person, and never to
   transcribe sensitive field values back.
 

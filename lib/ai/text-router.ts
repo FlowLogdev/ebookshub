@@ -5,7 +5,7 @@ import { getNamedTextProvider, isTextProviderConfigured, type TextGenerationProv
  * choose according to the subject"). This is intentionally a plain data
  * table, not embedded logic, so it's a one-line edit to change later:
  *
- *   - Anthropic (Claude): creative/narrative prose — fiction, poetry,
+ *   - Anthropic: creative/narrative prose — fiction, poetry,
  *     memoir, biography. Strongest at voice, pacing, and long-form
  *     coherence for character-driven writing.
  *   - DeepSeek: structured/analytical content — nonfiction, educational,
