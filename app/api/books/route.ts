@@ -17,6 +17,8 @@ const CreateBookSchema = z.object({
   imageStyle: z.string().optional(),
   illustrationFrequency: z.string().optional(),
   dimensions: z.string().optional(),
+  /** Base64 data URI, e.g. "data:image/png;base64,...". Used to condition cover/illustration generation — see lib/ai/image-provider.ts. */
+  referenceImage: z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,/i, "referenceImage must be an image data URI").optional(),
 })
 
 export async function GET() {
@@ -87,6 +89,7 @@ export async function POST(req: Request) {
       source_prompt: input.prompt,
       status: "draft",
       is_free_tier: freeTier,
+      reference_image_url: input.referenceImage ?? null,
     })
     .select()
     .single()

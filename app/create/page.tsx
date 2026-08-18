@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react"
+import { ArrowLeft, ArrowRight, ImagePlus, Loader2, Sparkles, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Logo } from "@/components/brand/logo"
@@ -51,6 +51,33 @@ export default function CreateBookPage() {
   const [imageStyle, setImageStyle] = useState<string>(IMAGE_STYLES[3])
   const [illustrationFrequency, setIllustrationFrequency] = useState("ai_recommended")
   const [dimensions, setDimensions] = useState("6x9")
+  const [referenceImage, setReferenceImage] = useState<string | null>(null)
+  const [referenceImageName, setReferenceImageName] = useState<string | null>(null)
+
+  // Sent as a base64 data URI in a JSON body, which inflates size by ~33% —
+  // kept well under Vercel's ~4.5MB serverless request body limit.
+  const MAX_REFERENCE_IMAGE_BYTES = 3 * 1024 * 1024
+
+  function handleReferenceImageChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.")
+      return
+    }
+    if (file.size > MAX_REFERENCE_IMAGE_BYTES) {
+      toast.error("That image is too large — please choose one under 3MB.")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      setReferenceImage(reader.result as string)
+      setReferenceImageName(file.name)
+    }
+    reader.onerror = () => toast.error("Couldn't read that image — please try another file.")
+    reader.readAsDataURL(file)
+  }
 
   const selectedType = useMemo(() => BOOK_TYPES.find((t) => t.id === bookType), [bookType])
 
@@ -99,6 +126,7 @@ export default function CreateBookPage() {
           imageStyle,
           illustrationFrequency,
           dimensions,
+          referenceImage: referenceImage || undefined,
         }),
       })
       const data = await res.json()
@@ -321,6 +349,46 @@ export default function CreateBookPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="reference-image">Reference image (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Upload a character, photo, or style reference and the AI will use it when generating your cover and
+                  illustrations.
+                </p>
+                {referenceImage ? (
+                  <div className="mt-2 flex items-center gap-3 rounded-lg border p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={referenceImage} alt="Reference" className="h-16 w-16 rounded-md object-cover" />
+                    <span className="flex-1 truncate text-sm text-muted-foreground">{referenceImageName}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setReferenceImage(null)
+                        setReferenceImageName(null)
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="reference-image"
+                    className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground hover:border-primary/50"
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                    Upload an image
+                  </label>
+                )}
+                <input
+                  id="reference-image"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleReferenceImageChange}
+                />
               </div>
             </div>
           </div>

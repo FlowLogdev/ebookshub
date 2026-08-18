@@ -98,6 +98,14 @@ consistent) rather than mixing providers mid-request. Only throws if every confi
 > and throws with the raw payload attached if none match — so a schema mismatch fails loudly instead of silently
 > returning a broken URL. Tighten it to the exact field once you've seen one real completed response.
 
+**Reference-image-guided generation**: the creation wizard's final step (`app/create/page.tsx`) accepts an
+optional image upload (any common image type, capped at 3MB client-side to stay under Vercel's serverless request
+body limit once base64-inflated), stored on `books.reference_image_url` as a data URI. When covers are generated
+(`app/api/books/[id]/covers/route.ts`), that image is decoded and passed through `GenerateImageOptions.referenceImage`
+to condition generation on it — Gemini via multimodal `interactions.create` input (image part + text part), OpenAI
+via `images.edit` instead of `images.generate`. Higgsfield has no image-conditioned endpoint wired up, so it silently
+ignores the reference and falls back to text-only generation if it's reached in the chain.
+
 ## Architecture notes
 
 - **AI provider abstraction** — every AI call goes through a named provider resolved from `lib/ai/text-provider.ts`

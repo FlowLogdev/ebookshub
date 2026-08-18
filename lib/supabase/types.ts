@@ -75,6 +75,7 @@ export interface Database {
           source_prompt: string | null
           selected_cover_id: string | null
           is_free_tier: boolean
+          reference_image_url: string | null
           created_at: string
           updated_at: string
         }

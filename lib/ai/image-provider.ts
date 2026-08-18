@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai"
-import OpenAI from "openai"
+import OpenAI, { toFile } from "openai"
 
 /**
  * Image-generation provider abstraction (spec section 45/10). Three
@@ -11,12 +11,25 @@ import OpenAI from "openai"
 
 export type ImageProviderName = "gemini" | "higgsfield" | "openai"
 
+export interface ReferenceImage {
+  /** Raw base64 (no "data:...;base64," prefix). */
+  data: string
+  mimeType: string
+}
+
 export interface GenerateImageOptions {
   prompt: string
   negativePrompt?: string
   /** Rough orientation hint — each provider maps this to its own size/aspect-ratio vocabulary. */
   size?: "1024x1024" | "1024x1536" | "1536x1024"
   count?: number
+  /**
+   * A user-supplied image to condition generation on (character/style/photo
+   * reference — spec: "generate images based on the image I provided").
+   * Supported by Gemini (multimodal input) and OpenAI (images.edit); ignored
+   * by Higgsfield, which has no image-conditioned endpoint wired up.
+   */
+  referenceImage?: ReferenceImage
 }
 
 export interface GeneratedImage {
@@ -36,6 +49,14 @@ function aspectRatioFor(size: GenerateImageOptions["size"]): "1:1" | "2:3" | "3:
   return "1:1"
 }
 
+type GeminiImageMimeType = "image/png" | "image/jpeg" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "image/bmp" | "image/tiff"
+const GEMINI_IMAGE_MIME_TYPES = new Set<string>(["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif", "image/gif", "image/bmp", "image/tiff"])
+
+/** Falls back to image/png for any upload type Gemini's ImageContent doesn't explicitly list (all common web image types are covered). */
+function toGeminiMimeType(mimeType: string): GeminiImageMimeType {
+  return GEMINI_IMAGE_MIME_TYPES.has(mimeType) ? (mimeType as GeminiImageMimeType) : "image/png"
+}
+
 /** Gemini (Nano Banana 2 / gemini-3.1-flash-image) via the @google/genai Interactions API. 1st choice. */
 class GeminiImageProvider implements ImageGenerationProvider {
   readonly name = "gemini" as const
@@ -49,11 +70,20 @@ class GeminiImageProvider implements ImageGenerationProvider {
     const prompt = opts.negativePrompt ? `${opts.prompt}\n\nAvoid: ${opts.negativePrompt}` : opts.prompt
     const count = opts.count ?? 1
 
+    // With a reference image, the model needs the multimodal input form
+    // (image part + text part) instead of a plain prompt string.
+    const input: Parameters<typeof this.client.interactions.create>[0]["input"] = opts.referenceImage
+      ? [
+          { type: "image", data: opts.referenceImage.data, mime_type: toGeminiMimeType(opts.referenceImage.mimeType) },
+          { type: "text", text: prompt },
+        ]
+      : prompt
+
     const results = await Promise.all(
       Array.from({ length: count }, () =>
         this.client.interactions.create({
           model: process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image",
-          input: prompt,
+          input,
           response_format: {
             type: "image",
             mime_type: "image/png",
@@ -196,13 +226,25 @@ class OpenAIImageProvider implements ImageGenerationProvider {
 
   async generateImage(opts: GenerateImageOptions): Promise<GeneratedImage[]> {
     const prompt = opts.negativePrompt ? `${opts.prompt}\n\nAvoid: ${opts.negativePrompt}` : opts.prompt
+    const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1"
 
-    const response = await this.client.images.generate({
-      model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1",
-      prompt,
-      size: opts.size ?? "1024x1024",
-      n: opts.count ?? 1,
-    })
+    const response = opts.referenceImage
+      ? await this.client.images.edit({
+          model,
+          // gpt-image-1 accepts png/webp/jpg for edits; other upload types
+          // (gif/bmp/tiff/heic) will fail here and fall through to the next
+          // provider in the chain rather than being transcoded.
+          image: await toFile(Buffer.from(opts.referenceImage.data, "base64"), "reference", { type: opts.referenceImage.mimeType }),
+          prompt,
+          size: opts.size ?? "1024x1024",
+          n: opts.count ?? 1,
+        })
+      : await this.client.images.generate({
+          model,
+          prompt,
+          size: opts.size ?? "1024x1024",
+          n: opts.count ?? 1,
+        })
 
     return (response.data ?? [])
       .map((item) => ({

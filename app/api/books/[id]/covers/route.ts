@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { generateImageWithFallback } from "@/lib/ai/image-provider"
+import { generateImageWithFallback, type ReferenceImage } from "@/lib/ai/image-provider"
 import { FREE_TIER_MAX_IMAGES } from "@/lib/book/constants"
+import { resolveImageBytes } from "@/lib/export/images"
 import { upgradeRequired } from "@/lib/plans/free-tier"
 import { createClient } from "@/lib/supabase/server"
 
@@ -33,7 +34,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
  * an upgrade prompt. Images are stored inline as data: URIs (or hosted
  * URLs, provider-dependent) for now; moving them to object storage
  * (Supabase Storage / S3) is a follow-up (spec section 43) that only
- * touches this route.
+ * touches this route. If the book has a `reference_image_url` (uploaded in
+ * the creation wizard), it's passed to the provider as image-conditioning
+ * input (Gemini multimodal input / OpenAI images.edit) so generation is
+ * guided by the user's reference — see lib/ai/image-provider.ts.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -66,16 +70,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     book.image_style ? `Art style: ${book.image_style}.` : "Art style: premium, warm, editorial storybook illustration.",
     book.tone ? `Tone: ${book.tone}.` : null,
     styleNote ?? null,
+    book.reference_image_url ? "A reference image is attached — match its character, subject, or style as closely as possible." : null,
     "Composition: portrait orientation, title-safe negative space near the top third, no embedded text or typography — the title will be added separately. Professional, publishable quality.",
   ]
     .filter(Boolean)
     .join(" ")
+
+  let referenceImage: ReferenceImage | undefined
+  if (book.reference_image_url) {
+    const resolved = await resolveImageBytes(book.reference_image_url)
+    if (resolved) referenceImage = { data: resolved.buffer.toString("base64"), mimeType: resolved.mime }
+  }
 
   try {
     const { images, provider } = await generateImageWithFallback({
       prompt,
       size: "1024x1536",
       count: book.is_free_tier ? FREE_TIER_MAX_IMAGES : 4,
+      referenceImage,
     })
 
     const { data: covers, error } = await supabase
