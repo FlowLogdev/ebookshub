@@ -28,9 +28,13 @@ export async function GET() {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 })
 
+  // books<->covers has two FK paths (covers.book_id, and books.selected_cover_id
+  // pointing back at covers.id) — PostgREST can't auto-disambiguate a bare
+  // `covers(...)` embed once both exist, so the FK constraint name pins it to
+  // the "this book's covers" relationship, not the "selected cover" one.
   const { data: books, error } = await supabase
     .from("books")
-    .select("*, covers(id, image_url, is_selected)")
+    .select("*, covers!covers_book_id_fkey(id, image_url, is_selected)")
     .eq("owner_id", user.id)
     .order("updated_at", { ascending: false })
 
