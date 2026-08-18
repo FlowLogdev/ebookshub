@@ -105,6 +105,8 @@ async function finalizeJobIfDone(supabase: TypedClient, jobId: string): Promise<
   }
 
   const anyFailed = tasks.some((t) => t.status === "failed")
+  const { data: job } = await supabase.from("generation_jobs").select("job_type, book_id").eq("id", jobId).single()
+
   await supabase
     .from("generation_jobs")
     .update({
@@ -114,6 +116,15 @@ async function finalizeJobIfDone(supabase: TypedClient, jobId: string): Promise<
       error: anyFailed ? `${tasks.filter((t) => t.status === "failed").length} task(s) failed and can be retried.` : null,
     })
     .eq("id", jobId)
+
+  // A FULL_BOOK job finishing with every chapter written is what "the book
+  // is done" means — nothing else in this pipeline ever flips books.status
+  // to "complete", so without this the dashboard keeps routing back to the
+  // generating screen forever even after every chapter succeeded. Leave it
+  // on "generating" if any chapter failed, so the user lands back here to retry.
+  if (job?.job_type === "FULL_BOOK" && job.book_id && !anyFailed) {
+    await supabase.from("books").update({ status: "complete" }).eq("id", job.book_id)
+  }
 
   return "complete"
 }
