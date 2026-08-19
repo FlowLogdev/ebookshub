@@ -47,6 +47,8 @@ const UpdateBookSchema = z.object({
   status: z.enum(["draft", "blueprint_ready", "generating", "complete", "published", "archived"]).optional(),
   selectedCoverId: z.string().uuid().nullable().optional(),
   selectedBackCoverId: z.string().uuid().nullable().optional(),
+  frontCoverCopy: z.string().max(800).nullable().optional(),
+  backCoverCopy: z.string().max(800).nullable().optional(),
 })
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -59,6 +61,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const parsed = UpdateBookSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 })
 
+  const copy = parsed.data.frontCoverCopy ?? parsed.data.backCoverCopy
+  if (copy?.trim() && copy.trim().split(/\s+/).length > 100) {
+    return NextResponse.json({ error: "Cover copy must be 100 words or fewer." }, { status: 400 })
+  }
+
   const { data: book, error } = await supabase
     .from("books")
     .update({
@@ -68,6 +75,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
       ...(parsed.data.selectedCoverId !== undefined ? { selected_cover_id: parsed.data.selectedCoverId } : {}),
       ...(parsed.data.selectedBackCoverId !== undefined ? { selected_back_cover_id: parsed.data.selectedBackCoverId } : {}),
+      ...(parsed.data.frontCoverCopy !== undefined ? { front_cover_copy: parsed.data.frontCoverCopy?.trim() || null } : {}),
+      ...(parsed.data.backCoverCopy !== undefined ? { back_cover_copy: parsed.data.backCoverCopy?.trim() || null } : {}),
     })
     .eq("id", id)
     .select()

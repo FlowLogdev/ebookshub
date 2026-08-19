@@ -44,9 +44,11 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
     () => [
       { type: "cover" as const },
       { type: "toc" as const },
+      ...images.filter((image) => !image.chapter_id).map((image) => ({ type: "artwork" as const, image })),
       ...chapters.map((c) => ({ type: "chapter" as const, chapter: c })),
+      { type: "backCover" as const },
     ],
-    [chapters],
+    [chapters, images],
   )
 
   function goTo(target: number) {
@@ -83,7 +85,7 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
             <SelectContent>
               {pages.map((p, i) => (
                 <SelectItem key={i} value={String(i)}>
-                  {p.type === "cover" ? "Cover" : p.type === "toc" ? "Table of Contents" : p.chapter.title}
+                  {p.type === "cover" ? "Front cover" : p.type === "backCover" ? "Back cover" : p.type === "toc" ? "Table of Contents" : p.type === "artwork" ? "Book artwork" : p.chapter.title}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -126,6 +128,7 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
                   <h1 className="font-display text-2xl font-medium">{book.title}</h1>
                   {book.subtitle && <p className="mt-1 text-neutral-500">{book.subtitle}</p>}
                   {book.author_name && <p className="mt-6 text-sm text-neutral-500">by {book.author_name}</p>}
+                  {book.front_cover_copy && <p className="mt-5 max-w-sm text-sm leading-relaxed text-neutral-600">{book.front_cover_copy}</p>}
                 </div>
               )}
 
@@ -179,6 +182,24 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
                   ) : (
                     <p className="mt-6 text-center text-neutral-400">This chapter hasn&apos;t been written yet.</p>
                   )}
+                </div>
+              )}
+
+              {page.type === "artwork" && (
+                <div className="flex h-full flex-col items-center justify-center p-10 text-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={page.image.url} alt="Book artwork" className="max-h-[80%] max-w-full rounded-md object-contain shadow-lg" />
+                  <p className="mt-5 text-xs uppercase tracking-[0.2em] text-neutral-400">Book artwork</p>
+                </div>
+              )}
+
+              {page.type === "backCover" && (
+                <div className="flex h-full flex-col items-center justify-center p-10 text-center">
+                  {covers.find((c) => c.id === book.selected_back_cover_id) && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={covers.find((c) => c.id === book.selected_back_cover_id)?.image_url} alt="Back cover" className="mb-6 max-h-72 rounded-md object-cover shadow-lg" />
+                  )}
+                  {book.back_cover_copy ? <p className="max-w-sm text-sm leading-relaxed text-neutral-700">{book.back_cover_copy}</p> : <p className="text-sm text-neutral-400">Back cover</p>}
                 </div>
               )}
             </motion.div>

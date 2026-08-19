@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { BOOK_TYPES, MAX_PAGE_COUNT, MIN_PAGE_COUNT } from "@/lib/book/constants"
 import { PLAN_TIERS } from "@/lib/pricing"
+import { PlanButton } from "@/components/billing/plan-button"
 
 const STATS = [
   { value: "5-300", label: "pages per book" },
@@ -347,9 +348,7 @@ export default function HomePage() {
                         </li>
                       ))}
                     </ul>
-                    <Button className="mt-8" variant={plan.highlighted ? "gold" : "outline"} asChild>
-                      <Link href="/signup">{plan.id === "free" ? "Start free" : "Choose plan"}</Link>
-                    </Button>
+                    <PlanButton plan={plan.id} highlighted={plan.highlighted} />
                   </Card>
                 </RevealItem>
               ))}

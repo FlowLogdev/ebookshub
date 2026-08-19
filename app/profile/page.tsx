@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, CreditCard, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Logo } from "@/components/brand/logo"
@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [language, setLanguage] = useState("en")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [billingLoading, setBillingLoading] = useState(false)
 
   useEffect(() => {
     fetch("/api/profile")
@@ -54,6 +55,18 @@ export default function ProfilePage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function manageBilling() {
+    setBillingLoading(true)
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Could not open billing.")
+      window.location.assign(data.url)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not open billing.")
+    } finally { setBillingLoading(false) }
   }
 
   if (loading) {
@@ -114,6 +127,13 @@ export default function ProfilePage() {
           <Button variant="gold" onClick={save} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />} Save changes
           </Button>
+          <div className="border-t pt-6">
+            <h2 className="font-medium">Billing</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Manage your EbooksHub subscription, payment method, or cancellation in Stripe.</p>
+            <Button variant="outline" className="mt-3" onClick={manageBilling} disabled={billingLoading}>
+              {billingLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} Manage subscription
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ export type JobType = "BLUEPRINT" | "FULL_BOOK" | "CHAPTER" | "COVER" | "GLOSSAR
 export type CreditType = "text" | "image"
 export type CoverVariant = "with_background" | "no_background"
 export type CoverSource = "ai" | "canva" | "manual"
+export type ImageSource = "ai" | "upload" | "mixed"
 
 export interface Database {
   public: {
@@ -27,6 +28,10 @@ export interface Database {
           text_credits_remaining: number
           image_credits_remaining: number
           free_ebook_used_at: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string
+          subscription_current_period_end: string | null
           created_at: string
           updated_at: string
         }
@@ -79,6 +84,10 @@ export interface Database {
           selected_back_cover_id: string | null
           is_free_tier: boolean
           reference_image_url: string | null
+          requested_image_count: number
+          image_source: ImageSource
+          front_cover_copy: string | null
+          back_cover_copy: string | null
           created_at: string
           updated_at: string
         }
@@ -267,6 +276,8 @@ export interface Database {
           aspect_ratio: string | null
           provider: string | null
           status: string
+          source: "ai" | "upload"
+          slot_index: number | null
           created_at: string
         }
         Insert: Partial<Database["public"]["Tables"]["images"]["Row"]> & { book_id: string; url: string }
@@ -326,6 +337,12 @@ export interface Database {
           expires_at: string
         }
         Update: Partial<Database["public"]["Tables"]["canva_connections"]["Row"]>
+        Relationships: []
+      }
+      stripe_webhook_events: {
+        Row: { stripe_event_id: string; event_type: string; processed_at: string }
+        Insert: { stripe_event_id: string; event_type: string; processed_at?: string }
+        Update: Partial<Database["public"]["Tables"]["stripe_webhook_events"]["Row"]>
         Relationships: []
       }
     }

@@ -17,6 +17,11 @@ const CreateBookSchema = z.object({
   imageStyle: z.string().optional(),
   illustrationFrequency: z.string().optional(),
   dimensions: z.string().optional(),
+  requestedImageCount: z.number().int().min(1).max(10).default(1),
+  imageSource: z.enum(["ai", "upload", "mixed"]).default("ai"),
+  uploadedImages: z.array(z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,/i, "uploadedImages must contain image data URIs")).max(10).default([]),
+  frontCoverCopy: z.string().max(800).optional(),
+  backCoverCopy: z.string().max(800).optional(),
   /** Base64 data URI, e.g. "data:image/png;base64,...". Used to condition cover/illustration generation — see lib/ai/image-provider.ts. */
   referenceImage: z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,/i, "referenceImage must be an image data URI").optional(),
 })
@@ -55,6 +60,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request." }, { status: 400 })
   }
   const input = parsed.data
+  const wordCount = (value: string | undefined) => value?.trim() ? value.trim().split(/\s+/).length : 0
+  if (wordCount(input.frontCoverCopy) > 100 || wordCount(input.backCoverCopy) > 100) {
+    return NextResponse.json({ error: "Cover copy must be 100 words or fewer." }, { status: 400 })
+  }
+  if (input.uploadedImages.length > input.requestedImageCount) {
+    return NextResponse.json({ error: "Upload no more photos than the number of picture slots you selected." }, { status: 400 })
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -94,6 +106,10 @@ export async function POST(req: Request) {
       status: "draft",
       is_free_tier: freeTier,
       reference_image_url: input.referenceImage ?? null,
+      requested_image_count: input.requestedImageCount,
+      image_source: input.imageSource,
+      front_cover_copy: input.frontCoverCopy?.trim() || null,
+      back_cover_copy: input.backCoverCopy?.trim() || null,
     })
     .select()
     .single()
@@ -102,6 +118,24 @@ export async function POST(req: Request) {
     // Best-effort: don't strand the user's one-time free slot on a failed insert.
     if (freeTier) await supabase.from("profiles").update({ free_ebook_used_at: null }).eq("id", user.id)
     return NextResponse.json({ error: error?.message ?? "Failed to create book." }, { status: 500 })
+  }
+
+  if (input.uploadedImages.length) {
+    const { error: imageError } = await supabase.from("images").insert(
+      input.uploadedImages.map((url, slotIndex) => ({
+        book_id: book.id,
+        url,
+        source: "upload" as const,
+        slot_index: slotIndex,
+        style: "User photo",
+        status: "complete",
+      })),
+    )
+    if (imageError) {
+      await supabase.from("books").delete().eq("id", book.id)
+      if (freeTier) await supabase.from("profiles").update({ free_ebook_used_at: null }).eq("id", user.id)
+      return NextResponse.json({ error: imageError.message }, { status: 500 })
+    }
   }
 
   try {

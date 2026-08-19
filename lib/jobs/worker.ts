@@ -4,7 +4,7 @@ import { generateImageWithFallback } from "@/lib/ai/image-provider"
 import { generateBookBlueprint, generateBookConcept, blueprintTotalPages, capChapterWords, estimateWordsForPages } from "@/lib/book/blueprint"
 import { writeChapter } from "@/lib/book/chapter-writer"
 import { bookTypeById, FREE_TIER_MAX_WORDS } from "@/lib/book/constants"
-import { buildChapterIllustrationPrompt, chapterGetsIllustration } from "@/lib/book/illustration"
+import { buildChapterIllustrationPrompt } from "@/lib/book/illustration"
 import type { BookConcept } from "@/lib/book/schemas"
 import type { Database } from "@/lib/supabase/types"
 
@@ -252,16 +252,16 @@ async function runWriteChapter(supabase: TypedClient, bookId: string, chapterId:
     label: "AI generation",
   })
 
-  // Free-tier books already spend their one-shot image allowance on cover
-  // candidates (see FREE_TIER_MAX_IMAGES) — interior illustrations are a
-  // paid-tier feature so that budget isn't silently blown per chapter.
-  if (!book.is_free_tier && book.illustration_frequency !== "none" && book.illustration_frequency !== "cover_only") {
-    const { count: totalChapters } = await supabase
-      .from("chapters")
-      .select("id", { count: "exact", head: true })
-      .eq("book_id", bookId)
-
-    if (totalChapters && chapterGetsIllustration(book.illustration_frequency, chapter.chapter_number ?? chapter.order_index + 1, totalChapters)) {
+  // The creator's 1–10 artwork slots are fulfilled in chapter order. Uploaded
+  // photos already occupy their own slots; AI fills the remaining slots.
+  const { count: uploadedCount } = await supabase.from("images").select("id", { count: "exact", head: true }).eq("book_id", bookId).eq("source", "upload")
+  const requestedAiSlots = book.image_source === "upload"
+    ? 0
+    : book.image_source === "mixed"
+      ? Math.max(0, book.requested_image_count - (uploadedCount ?? 0))
+      : book.requested_image_count
+  if (!book.is_free_tier && requestedAiSlots > chapter.order_index) {
+    {
       await supabase.from("chapters").update({ status: "illustrating" }).eq("id", chapterId)
       try {
         const prompt = buildChapterIllustrationPrompt({
@@ -281,6 +281,8 @@ async function runWriteChapter(supabase: TypedClient, bookId: string, chapterId:
             style: book.image_style,
             aspect_ratio: "1:1",
             provider,
+            source: "ai",
+            slot_index: (uploadedCount ?? 0) + chapter.order_index,
           })
         }
       } catch (err) {

@@ -1,9 +1,9 @@
 "use client"
 
-import { Suspense, use, useCallback, useEffect, useState } from "react"
+import { Suspense, use, useCallback, useEffect, useState, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { ArrowLeft, Check, ExternalLink, Loader2, PenSquare, Sparkles } from "lucide-react"
+import { ArrowLeft, Check, ExternalLink, ImagePlus, Loader2, PenSquare, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 import { Logo } from "@/components/brand/logo"
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import { TextOverlayEditor, type OverlayText } from "@/components/cover/text-overlay-editor"
 import type { Database } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
@@ -40,6 +41,8 @@ function CoverPageInner({ params }: { params: Promise<{ id: string }> }) {
   const [pendingDesign, setPendingDesign] = useState<{ coverId: string; designId: string; variant: "with_background" | "no_background" } | null>(null)
   const [editingCover, setEditingCover] = useState<Cover | null>(null)
   const [savingOverlay, setSavingOverlay] = useState(false)
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
+  const [coverCopy, setCoverCopy] = useState("")
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/books/${bookId}`)
@@ -65,6 +68,7 @@ function CoverPageInner({ params }: { params: Promise<{ id: string }> }) {
   const isBackCover = side === "back"
   const visibleCovers = covers.filter((c) => c.is_back_cover === isBackCover)
   const selectedId = isBackCover ? book?.selected_back_cover_id : book?.selected_cover_id
+  const copyWords = coverCopy.trim() ? coverCopy.trim().split(/\s+/).length : 0
 
   async function generate(variant: "with_background" | "no_background") {
     setGenerating(variant)
@@ -175,6 +179,28 @@ function CoverPageInner({ params }: { params: Promise<{ id: string }> }) {
     }
   }
 
+  async function saveCoverCopy() {
+    if (copyWords > 100) return toast.error("Cover copy must be 100 words or fewer.")
+    const key = isBackCover ? "backCoverCopy" : "frontCoverCopy"
+    const res = await fetch(`/api/books/${bookId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [key]: coverCopy }) })
+    const data = await res.json()
+    if (!res.ok) return toast.error(data.error ?? "Failed to save cover copy.")
+    setBook(data.book)
+    setCopyDialogOpen(false)
+    toast.success("Cover copy saved.")
+  }
+
+  function uploadManualCover(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (!file.type.startsWith("image/") || file.size > 3 * 1024 * 1024) return toast.error("Choose an image under 3MB.")
+    const reader = new FileReader()
+    reader.onload = () => saveOverlay([], reader.result as string)
+    reader.onerror = () => toast.error("Couldn't read that image.")
+    reader.readAsDataURL(file)
+  }
+
   if (loading || !book) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -215,6 +241,13 @@ function CoverPageInner({ params }: { params: Promise<{ id: string }> }) {
           <Button variant="outline" onClick={() => generate("no_background")} disabled={generating !== null}>
             {generating === "no_background" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Generate without background
+          </Button>
+          <label htmlFor="manual-cover" className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+            <ImagePlus className="h-4 w-4" /> Upload your own {isBackCover ? "back " : ""}cover
+          </label>
+          <input id="manual-cover" type="file" accept="image/*" className="hidden" onChange={uploadManualCover} />
+          <Button variant="outline" onClick={() => { setCoverCopy(isBackCover ? book.back_cover_copy ?? "" : book.front_cover_copy ?? ""); setCopyDialogOpen(true) }}>
+            <PenSquare className="h-4 w-4" /> Add cover copy
           </Button>
           {pendingDesign && (
             <Button variant="secondary" onClick={importFromCanva} disabled={canvaBusyId === pendingDesign.designId}>
@@ -293,6 +326,15 @@ function CoverPageInner({ params }: { params: Promise<{ id: string }> }) {
               saving={savingOverlay}
             />
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{isBackCover ? "Back" : "Front"} cover copy</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Add a tagline, dedication, or book description. It will appear in the page-turn preview and supports up to 100 words.</p>
+          <Textarea value={coverCopy} onChange={(e) => setCoverCopy(e.target.value)} className="min-h-40" placeholder={isBackCover ? "A short description for readers…" : "A short line for the front cover…"} />
+          <p className="text-right text-xs text-muted-foreground">{copyWords}/100 words</p>
+          <Button variant="gold" onClick={saveCoverCopy}>Save cover copy</Button>
         </DialogContent>
       </Dialog>
     </div>

@@ -53,6 +53,11 @@ export default function CreateBookPage() {
   const [dimensions, setDimensions] = useState("6x9")
   const [referenceImage, setReferenceImage] = useState<string | null>(null)
   const [referenceImageName, setReferenceImageName] = useState<string | null>(null)
+  const [requestedImageCount, setRequestedImageCount] = useState("3")
+  const [imageSource, setImageSource] = useState<"ai" | "upload" | "mixed">("ai")
+  const [uploadedImages, setUploadedImages] = useState<{ name: string; data: string }[]>([])
+  const [frontCoverCopy, setFrontCoverCopy] = useState("")
+  const [backCoverCopy, setBackCoverCopy] = useState("")
 
   // Sent as a base64 data URI in a JSON body, which inflates size by ~33% —
   // kept well under Vercel's ~4.5MB serverless request body limit.
@@ -78,6 +83,30 @@ export default function CreateBookPage() {
     reader.onerror = () => toast.error("Couldn't read that image — please try another file.")
     reader.readAsDataURL(file)
   }
+
+  function handleBookPhotos(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ""
+    const remaining = Number(requestedImageCount) - uploadedImages.length
+    if (files.length > remaining) {
+      toast.error(`You selected ${files.length}, but only ${remaining} picture slot${remaining === 1 ? "" : "s"} remain.`)
+      return
+    }
+    if (files.some((file) => !file.type.startsWith("image/") || file.size > MAX_REFERENCE_IMAGE_BYTES)) {
+      toast.error("Each photo must be an image smaller than 3MB.")
+      return
+    }
+    Promise.all(files.map((file) => new Promise<{ name: string; data: string }>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve({ name: file.name, data: reader.result as string })
+      reader.onerror = () => reject(new Error("Couldn't read a selected photo."))
+      reader.readAsDataURL(file)
+    })))
+      .then((next) => setUploadedImages((current) => [...current, ...next]))
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Couldn't read the selected photos."))
+  }
+
+  const coverWords = (value: string) => value.trim() ? value.trim().split(/\s+/).length : 0
 
   const selectedType = useMemo(() => BOOK_TYPES.find((t) => t.id === bookType), [bookType])
 
@@ -127,6 +156,11 @@ export default function CreateBookPage() {
           illustrationFrequency,
           dimensions,
           referenceImage: referenceImage || undefined,
+          requestedImageCount: Number(requestedImageCount),
+          imageSource,
+          uploadedImages: uploadedImages.map((image) => image.data),
+          frontCoverCopy: frontCoverCopy || undefined,
+          backCoverCopy: backCoverCopy || undefined,
         }),
       })
       const data = await res.json()
@@ -350,6 +384,56 @@ export default function CreateBookPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-3 sm:col-span-2 rounded-xl border bg-card p-4">
+                <div>
+                  <Label htmlFor="picture-count">Pictures inside your book</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">Choose 1–10 pictures. Use your own photos, AI illustrations, or a combination.</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Select value={requestedImageCount} onValueChange={(value) => {
+                    setRequestedImageCount(value)
+                    setUploadedImages((current) => current.slice(0, Number(value)))
+                  }}>
+                    <SelectTrigger id="picture-count"><SelectValue /></SelectTrigger>
+                    <SelectContent>{Array.from({ length: 10 }, (_, i) => <SelectItem key={i + 1} value={String(i + 1)}>{i + 1} picture{i === 0 ? "" : "s"}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Select value={imageSource} onValueChange={(value) => setImageSource(value as "ai" | "upload" | "mixed")}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ai">Generate all with AI</SelectItem>
+                      <SelectItem value="upload">Use my uploaded photos</SelectItem>
+                      <SelectItem value="mixed">Mix my photos and AI</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {imageSource !== "ai" && (
+                  <>
+                    <label htmlFor="book-photos" className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground hover:border-primary/50">
+                      <ImagePlus className="h-4 w-4" /> Add photos ({uploadedImages.length}/{requestedImageCount})
+                    </label>
+                    <input id="book-photos" type="file" accept="image/*" multiple className="hidden" onChange={handleBookPhotos} />
+                    {uploadedImages.length > 0 && (
+                      <div className="grid grid-cols-5 gap-2">
+                        {uploadedImages.map((image, index) => (
+                          <div key={image.name + index} className="relative aspect-square overflow-hidden rounded-md border">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={image.data} alt="Selected book artwork" className="h-full w-full object-cover" />
+                            <button type="button" aria-label={`Remove ${image.name}`} onClick={() => setUploadedImages((current) => current.filter((_, i) => i !== index))} className="absolute right-1 top-1 rounded-full bg-black/65 p-1 text-white"><X className="h-3 w-3" /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {imageSource === "upload" && uploadedImages.length !== Number(requestedImageCount) && <p className="text-xs text-amber-700">Add all {requestedImageCount} selected photos before creating your book.</p>}
+                  </>
+                )}
+              </div>
+              <div className="space-y-4 sm:col-span-2 rounded-xl border bg-card p-4">
+                <div><Label>Cover copy (optional)</Label><p className="mt-1 text-xs text-muted-foreground">Add up to 100 words to display on each cover. You can edit this later in Cover Studio.</p></div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5"><Label htmlFor="front-copy">Front cover</Label><Textarea id="front-copy" value={frontCoverCopy} onChange={(e) => setFrontCoverCopy(e.target.value)} placeholder="A short line, dedication, or tagline" className="min-h-24" /><p className="text-right text-xs text-muted-foreground">{coverWords(frontCoverCopy)}/100 words</p></div>
+                  <div className="space-y-1.5"><Label htmlFor="back-copy">Back cover</Label><Textarea id="back-copy" value={backCoverCopy} onChange={(e) => setBackCoverCopy(e.target.value)} placeholder="A short book description or author note" className="min-h-24" /><p className="text-right text-xs text-muted-foreground">{coverWords(backCoverCopy)}/100 words</p></div>
+                </div>
+              </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="reference-image">Reference image (optional)</Label>
                 <p className="text-xs text-muted-foreground">
@@ -403,7 +487,11 @@ export default function CreateBookPage() {
               Next <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
-            <Button variant="gold" onClick={handleCreate} disabled={submitting}>
+            <Button variant="gold" onClick={() => {
+              if (imageSource === "upload" && uploadedImages.length !== Number(requestedImageCount)) return toast.error(`Please add ${requestedImageCount} photos or choose a mixed/AI option.`)
+              if (coverWords(frontCoverCopy) > 100 || coverWords(backCoverCopy) > 100) return toast.error("Cover copy must be 100 words or fewer.")
+              handleCreate()
+            }} disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               Create My Book
             </Button>

@@ -15,7 +15,7 @@ const OverlaySchema = z.object({
 
 const BodySchema = z.object({
   image: z.string().startsWith("data:"),
-  overlays: z.array(OverlaySchema),
+  overlays: z.array(OverlaySchema).default([]),
   variant: z.enum(["with_background", "no_background"]).default("with_background"),
   isBackCover: z.boolean().default(false),
 })
