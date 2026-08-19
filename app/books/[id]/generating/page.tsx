@@ -60,9 +60,22 @@ function GeneratingPageInner({ params }: { params: Promise<{ id: string }> }) {
   }, [bookId, jobId])
 
   // Refresh chapter statuses whenever the worker loop reports a task finished.
+  // Depend on `tasks` itself (a new array every refresh), not `tasks.length`
+  // — the task count never changes mid-run, only each task's status does, so
+  // keying on length meant this only ever fired once and the chapter list
+  // froze on its very first snapshot while the job kept progressing underneath.
   useEffect(() => {
     loadBook()
-  }, [tasks.length, loadBook])
+  }, [tasks, loadBook])
+
+  // Once every chapter is done, take the user straight to the finished book
+  // instead of leaving them stuck on a "your book is ready" screen with a
+  // button they have to notice and click.
+  useEffect(() => {
+    if (job?.status !== "complete") return
+    const timeout = setTimeout(() => router.push(`/books/${bookId}/preview`), 1200)
+    return () => clearTimeout(timeout)
+  }, [job?.status, bookId, router])
 
   async function retryChapter(chapterId: string) {
     try {
@@ -99,7 +112,7 @@ function GeneratingPageInner({ params }: { params: Promise<{ id: string }> }) {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {isComplete
-              ? "Every chapter has been written. Open the editor to review and polish it."
+              ? "Every chapter has been written. Taking you to the preview…"
               : "You can safely close this tab — generation picks up right where it left off when you come back."}
           </p>
         </div>
@@ -134,8 +147,11 @@ function GeneratingPageInner({ params }: { params: Promise<{ id: string }> }) {
         </ol>
 
         {isComplete && (
-          <div className="mt-10 flex justify-center">
-            <Button size="lg" variant="gold" onClick={() => router.push(`/books/${bookId}/edit`)}>
+          <div className="mt-10 flex justify-center gap-3">
+            <Button size="lg" variant="gold" onClick={() => router.push(`/books/${bookId}/preview`)}>
+              Open preview now
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => router.push(`/books/${bookId}/edit`)}>
               Open in editor
             </Button>
           </div>

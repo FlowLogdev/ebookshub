@@ -43,6 +43,7 @@ const STATUS_LABEL: Record<string, { label: string; variant: "outline" | "second
 function destinationFor(book: DashboardBook): string {
   if (book.status === "draft" || book.status === "blueprint_ready") return `/books/${book.id}/outline`
   if (book.status === "generating") return `/books/${book.id}/generating`
+  if (book.status === "complete" || book.status === "published") return `/books/${book.id}/preview`
   return `/books/${book.id}/edit`
 }
 
