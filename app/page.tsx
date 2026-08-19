@@ -126,7 +126,7 @@ export default function HomePage() {
               <h1 className="font-display text-4xl font-medium leading-[1.1] tracking-tight text-balance sm:text-5xl lg:text-6xl">
                 Turn your idea into a{" "}
                 <span
-                  className="animate-shimmer bg-clip-text italic text-transparent [background-image:linear-gradient(110deg,hsl(var(--gold))45%,hsl(var(--gold-end))50%,hsl(var(--gold))55%)] [background-size:250%_100%]"
+                  className="animate-shimmer bg-clip-text italic text-transparent [background-image:linear-gradient(110deg,hsl(var(--gold))30%,hsl(var(--gold-end))42%,#fff6dc_50%,hsl(var(--gold-end))58%,hsl(var(--gold))70%)] [background-size:220%_100%]"
                 >
                   complete book
                 </span>
