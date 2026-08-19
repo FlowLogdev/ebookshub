@@ -60,18 +60,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
-  const StyleOverride = z.object({ styleNote: z.string().optional() }).optional()
-  const parsed = StyleOverride.safeParse(await req.json().catch(() => ({})))
+  const RequestSchema = z
+    .object({
+      styleNote: z.string().optional(),
+      variant: z.enum(["with_background", "no_background"]).default("with_background"),
+      isBackCover: z.boolean().default(false),
+    })
+    .optional()
+  const parsed = RequestSchema.safeParse(await req.json().catch(() => ({})))
   const styleNote = parsed.success ? parsed.data?.styleNote : undefined
+  const variant = parsed.success ? (parsed.data?.variant ?? "with_background") : "with_background"
+  const isBackCover = parsed.success ? (parsed.data?.isBackCover ?? false) : false
 
   const prompt = [
-    `Front book cover illustration for "${book.title}"${book.subtitle ? `: ${book.subtitle}` : ""}.`,
+    isBackCover
+      ? `Back book cover design for "${book.title}"${book.subtitle ? `: ${book.subtitle}` : ""}, complementing the front cover's art style.`
+      : `Front book cover illustration for "${book.title}"${book.subtitle ? `: ${book.subtitle}` : ""}.`,
     book.genre ? `Genre: ${book.genre}.` : null,
     book.image_style ? `Art style: ${book.image_style}.` : "Art style: premium, warm, editorial storybook illustration.",
     book.tone ? `Tone: ${book.tone}.` : null,
     styleNote ?? null,
     book.reference_image_url ? "A reference image is attached — match its character, subject, or style as closely as possible." : null,
-    "Composition: portrait orientation, title-safe negative space near the top third, no embedded text or typography — the title will be added separately. Professional, publishable quality.",
+    variant === "no_background"
+      ? "Composition: the subject or motif isolated on a clean, mostly solid or subtly-gradient backdrop with no busy scene — designed so text can be overlaid anywhere on the image and stay readable."
+      : "Composition: portrait orientation, title-safe negative space near the top third, full illustrated scene/background.",
+    isBackCover
+      ? "Leave a clear, evenly-toned rectangular area in the lower half for blurb text — no embedded text or typography."
+      : "No embedded text or typography — the title will be added separately.",
+    "Professional, publishable quality.",
   ]
     .filter(Boolean)
     .join(" ")
@@ -92,7 +108,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { data: covers, error } = await supabase
       .from("covers")
-      .insert(images.map((img) => ({ book_id: id, image_url: img.url, prompt, style: book.image_style, provider })))
+      .insert(
+        images.map((img) => ({
+          book_id: id,
+          image_url: img.url,
+          prompt,
+          style: book.image_style,
+          provider,
+          variant,
+          is_back_cover: isBackCover,
+        })),
+      )
       .select()
     if (error) throw error
 

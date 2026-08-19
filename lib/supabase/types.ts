@@ -7,6 +7,8 @@ export type ChapterStatus = "waiting" | "planning" | "writing" | "illustrating" 
 export type JobStatus = "queued" | "running" | "complete" | "failed" | "cancelled"
 export type JobType = "BLUEPRINT" | "FULL_BOOK" | "CHAPTER" | "COVER" | "GLOSSARY" | "PROOFREAD"
 export type CreditType = "text" | "image"
+export type CoverVariant = "with_background" | "no_background"
+export type CoverSource = "ai" | "canva" | "manual"
 
 export interface Database {
   public: {
@@ -74,6 +76,7 @@ export interface Database {
           status: BookStatus
           source_prompt: string | null
           selected_cover_id: string | null
+          selected_back_cover_id: string | null
           is_free_tier: boolean
           reference_image_url: string | null
           created_at: string
@@ -242,6 +245,10 @@ export interface Database {
           style: string | null
           provider: string | null
           is_selected: boolean
+          variant: CoverVariant
+          source: CoverSource
+          overlay_text: { text: string; x: number; y: number; fontSize: number; color: string; fontFamily: string }[] | null
+          is_back_cover: boolean
           created_at: string
         }
         Insert: Partial<Database["public"]["Tables"]["covers"]["Row"]> & { book_id: string; image_url: string }

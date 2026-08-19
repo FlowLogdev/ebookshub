@@ -1,13 +1,17 @@
 "use client"
 
-import { use, useCallback, useEffect, useState } from "react"
+import { Suspense, use, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { ArrowLeft, Check, ExternalLink, Loader2, PenSquare, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 import { Logo } from "@/components/brand/logo"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { TextOverlayEditor, type OverlayText } from "@/components/cover/text-overlay-editor"
 import type { Database } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
 
@@ -15,12 +19,27 @@ type Book = Database["public"]["Tables"]["books"]["Row"]
 type Cover = Database["public"]["Tables"]["covers"]["Row"]
 
 export default function CoverPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={null}>
+      <CoverPageInner params={params} />
+    </Suspense>
+  )
+}
+
+function CoverPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id: bookId } = use(params)
+  const searchParams = useSearchParams()
   const [book, setBook] = useState<Book | null>(null)
   const [covers, setCovers] = useState<Cover[]>([])
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
+  const [generating, setGenerating] = useState<string | null>(null)
   const [selecting, setSelecting] = useState<string | null>(null)
+  const [side, setSide] = useState<"front" | "back">(searchParams.get("side") === "back" ? "back" : "front")
+  const [canvaConnected, setCanvaConnected] = useState<boolean | null>(null)
+  const [canvaBusyId, setCanvaBusyId] = useState<string | null>(null)
+  const [pendingDesign, setPendingDesign] = useState<{ coverId: string; designId: string; variant: "with_background" | "no_background" } | null>(null)
+  const [editingCover, setEditingCover] = useState<Cover | null>(null)
+  const [savingOverlay, setSavingOverlay] = useState(false)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/books/${bookId}`)
@@ -36,18 +55,33 @@ export default function CoverPage({ params }: { params: Promise<{ id: string }> 
     load()
   }, [load])
 
-  async function generate() {
-    setGenerating(true)
+  useEffect(() => {
+    fetch("/api/canva/status")
+      .then((r) => r.json())
+      .then((d) => setCanvaConnected(Boolean(d.connected)))
+      .catch(() => setCanvaConnected(false))
+  }, [])
+
+  const isBackCover = side === "back"
+  const visibleCovers = covers.filter((c) => c.is_back_cover === isBackCover)
+  const selectedId = isBackCover ? book?.selected_back_cover_id : book?.selected_cover_id
+
+  async function generate(variant: "with_background" | "no_background") {
+    setGenerating(variant)
     try {
-      const res = await fetch(`/api/books/${bookId}/covers`, { method: "POST" })
+      const res = await fetch(`/api/books/${bookId}/covers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variant, isBackCover }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Cover generation failed.")
       setCovers((prev) => [...(data.covers ?? []), ...prev])
-      toast.success("4 cover concepts generated.")
+      toast.success(`${data.covers?.length ?? 0} concepts generated.`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Cover generation failed. Check that OPENAI_API_KEY is set.")
+      toast.error(err instanceof Error ? err.message : "Cover generation failed.")
     } finally {
-      setGenerating(false)
+      setGenerating(null)
     }
   }
 
@@ -57,15 +91,87 @@ export default function CoverPage({ params }: { params: Promise<{ id: string }> 
       const res = await fetch(`/api/books/${bookId}/covers/select`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coverId }),
+        body: JSON.stringify({ coverId, isBackCover }),
       })
       if (!res.ok) throw new Error()
-      setBook((b) => (b ? { ...b, selected_cover_id: coverId } : b))
+      setBook((b) => (b ? { ...b, [isBackCover ? "selected_back_cover_id" : "selected_cover_id"]: coverId } : b))
       toast.success("Cover selected.")
     } catch {
       toast.error("Failed to select cover.")
     } finally {
       setSelecting(null)
+    }
+  }
+
+  async function designInCanva(cover: Cover) {
+    if (!canvaConnected) {
+      window.location.href = "/api/canva/connect"
+      return
+    }
+    setCanvaBusyId(cover.id)
+    try {
+      const res = await fetch(`/api/books/${bookId}/covers/canva/design`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverId: cover.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.needsConnect) {
+          window.location.href = "/api/canva/connect"
+          return
+        }
+        throw new Error(data.error ?? "Failed to create Canva design.")
+      }
+      window.open(data.design.editUrl, "_blank", "noopener,noreferrer")
+      setPendingDesign({ coverId: cover.id, designId: data.design.id, variant: cover.variant })
+      toast.success("Opened in Canva. Come back and click \"Import from Canva\" when you're done editing.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create Canva design.")
+    } finally {
+      setCanvaBusyId(null)
+    }
+  }
+
+  async function importFromCanva() {
+    if (!pendingDesign) return
+    setCanvaBusyId(pendingDesign.designId)
+    try {
+      const res = await fetch(`/api/books/${bookId}/covers/canva/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designId: pendingDesign.designId, variant: pendingDesign.variant, isBackCover }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed to import from Canva.")
+      setCovers((prev) => [data.cover, ...prev])
+      setPendingDesign(null)
+      toast.success("Imported your Canva design.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to import from Canva.")
+    } finally {
+      setCanvaBusyId(null)
+    }
+  }
+
+  async function saveOverlay(overlays: OverlayText[], renderedDataUrl: string) {
+    if (!editingCover) return
+    setSavingOverlay(true)
+    try {
+      const res = await fetch(`/api/books/${bookId}/covers/overlay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: renderedDataUrl, overlays, variant: editingCover.variant, isBackCover }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed to save.")
+      setCovers((prev) => [data.cover, ...prev])
+      setEditingCover(null)
+      toast.success("Saved as a new cover.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save.")
+    } finally {
+      setSavingOverlay(false)
     }
   }
 
@@ -83,35 +189,59 @@ export default function CoverPage({ params }: { params: Promise<{ id: string }> 
         <div className="container flex h-16 items-center justify-between">
           <Logo />
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/books/${bookId}/edit`}><ArrowLeft className="h-4 w-4" /> Back to editor</Link>
+            <Link href={`/books/${bookId}/preview`}><ArrowLeft className="h-4 w-4" /> Back to preview</Link>
           </Button>
         </div>
       </header>
 
       <div className="container max-w-4xl pt-8">
-        <h1 className="font-display text-2xl font-medium tracking-tight">Cover for &ldquo;{book.title}&rdquo;</h1>
+        <h1 className="font-display text-2xl font-medium tracking-tight">Cover studio for &ldquo;{book.title}&rdquo;</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generate a few concepts, then pick the one that fits. You can regenerate as many times as you like.
+          Generate concepts, edit text directly on the artwork, or open a design in Canva for full control.
         </p>
 
-        <Button variant="gold" className="mt-5" onClick={generate} disabled={generating}>
-          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          Generate 4 Cover Ideas
-        </Button>
+        <Tabs value={side} onValueChange={(v) => setSide(v as "front" | "back")} className="mt-6">
+          <TabsList>
+            <TabsTrigger value="front">Front cover</TabsTrigger>
+            <TabsTrigger value="back">Back cover</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        {covers.length === 0 ? (
-          <p className="mt-12 text-center text-sm text-muted-foreground">No covers yet — generate a first set of concepts above.</p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Button variant="gold" onClick={() => generate("with_background")} disabled={generating !== null}>
+            {generating === "with_background" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Generate with scene
+          </Button>
+          <Button variant="outline" onClick={() => generate("no_background")} disabled={generating !== null}>
+            {generating === "no_background" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Generate without background
+          </Button>
+          {pendingDesign && (
+            <Button variant="secondary" onClick={importFromCanva} disabled={canvaBusyId === pendingDesign.designId}>
+              {canvaBusyId === pendingDesign.designId ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+              Import from Canva
+            </Button>
+          )}
+        </div>
+
+        {visibleCovers.length === 0 ? (
+          <p className="mt-12 text-center text-sm text-muted-foreground">
+            No {isBackCover ? "back " : ""}covers yet — generate a first set of concepts above.
+          </p>
         ) : (
           <div className="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-4">
-            {covers.map((cover) => {
-              const isSelected = book.selected_cover_id === cover.id
+            {visibleCovers.map((cover) => {
+              const isSelected = selectedId === cover.id
               return (
                 <Card key={cover.id} className={cn("overflow-hidden", isSelected && "ring-2 ring-primary")}>
                   <div className="aspect-[2/3] bg-muted">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={cover.image_url} alt="Cover concept" className="h-full w-full object-cover" />
                   </div>
-                  <div className="p-3">
+                  <div className="space-y-1.5 p-3">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {cover.variant === "no_background" ? "No background" : "With scene"} · {cover.source}
+                    </p>
                     <Button
                       size="sm"
                       variant={isSelected ? "default" : "outline"}
@@ -126,6 +256,21 @@ export default function CoverPage({ params }: { params: Promise<{ id: string }> 
                       ) : null}
                       {isSelected ? "Selected" : "Use this cover"}
                     </Button>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" variant="ghost" className="flex-1" onClick={() => setEditingCover(cover)}>
+                        <PenSquare className="h-3.5 w-3.5" /> Edit text
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1"
+                        onClick={() => designInCanva(cover)}
+                        disabled={canvaBusyId === cover.id}
+                      >
+                        {canvaBusyId === cover.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                        Canva
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               )
@@ -133,6 +278,23 @@ export default function CoverPage({ params }: { params: Promise<{ id: string }> 
           </div>
         )}
       </div>
+
+      <Dialog open={editingCover !== null} onOpenChange={(open) => !open && setEditingCover(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit text on cover</DialogTitle>
+          </DialogHeader>
+          {editingCover && (
+            <TextOverlayEditor
+              imageUrl={editingCover.image_url}
+              initialOverlays={(editingCover.overlay_text as OverlayText[] | null) ?? []}
+              onSave={saveOverlay}
+              onCancel={() => setEditingCover(null)}
+              saving={savingOverlay}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

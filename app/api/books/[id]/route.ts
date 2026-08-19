@@ -46,6 +46,7 @@ const UpdateBookSchema = z.object({
   authorName: z.string().nullable().optional(),
   status: z.enum(["draft", "blueprint_ready", "generating", "complete", "published", "archived"]).optional(),
   selectedCoverId: z.string().uuid().nullable().optional(),
+  selectedBackCoverId: z.string().uuid().nullable().optional(),
 })
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +67,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(parsed.data.authorName !== undefined ? { author_name: parsed.data.authorName } : {}),
       ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
       ...(parsed.data.selectedCoverId !== undefined ? { selected_cover_id: parsed.data.selectedCoverId } : {}),
+      ...(parsed.data.selectedBackCoverId !== undefined ? { selected_back_cover_id: parsed.data.selectedBackCoverId } : {}),
     })
     .eq("id", id)
     .select()

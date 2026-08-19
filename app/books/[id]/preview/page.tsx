@@ -4,7 +4,7 @@ import { use, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import ReactMarkdown from "react-markdown"
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { ArrowLeft, ChevronLeft, ChevronRight, ImageIcon, Loader2, PencilLine, Rocket } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -190,7 +190,24 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
         </Button>
       </div>
 
-      <p className="pb-4 text-center text-xs text-white/50">Page {pageIndex + 1} of {pages.length}</p>
+      <p className="pb-2 text-center text-xs text-white/50">Page {pageIndex + 1} of {pages.length}</p>
+
+      <div className="border-t border-white/10 bg-neutral-900/80 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2">
+          <Button size="sm" variant="outline" asChild className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+            <Link href={`/books/${bookId}/cover`}><ImageIcon className="h-3.5 w-3.5" /> Design cover</Link>
+          </Button>
+          <Button size="sm" variant="outline" asChild className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+            <Link href={`/books/${bookId}/cover?side=back`}><ImageIcon className="h-3.5 w-3.5" /> Design back cover</Link>
+          </Button>
+          <Button size="sm" variant="outline" asChild className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+            <Link href={`/books/${bookId}/edit`}><PencilLine className="h-3.5 w-3.5" /> Edit book</Link>
+          </Button>
+          <Button size="sm" variant="gold" asChild>
+            <Link href={`/books/${bookId}/publish`}><Rocket className="h-3.5 w-3.5" /> Publish</Link>
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
