@@ -89,12 +89,28 @@ const config: Config = {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10px)" },
         },
+        "pulse-ring": {
+          "0%": { boxShadow: "0 0 0 0 hsl(var(--gold) / 0.45)" },
+          "70%": { boxShadow: "0 0 0 14px hsl(var(--gold) / 0)" },
+          "100%": { boxShadow: "0 0 0 0 hsl(var(--gold) / 0)" },
+        },
+        "glow-breathe": {
+          "0%, 100%": { opacity: "0.20", transform: "scale(1)" },
+          "50%": { opacity: "0.32", transform: "scale(1.06)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-up": "fade-up 0.6s ease-out both",
         float: "float 6s ease-in-out infinite",
+        "pulse-ring": "pulse-ring 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "glow-breathe": "glow-breathe 5s ease-in-out infinite",
+        shimmer: "shimmer 3.5s linear infinite",
       },
     },
   },

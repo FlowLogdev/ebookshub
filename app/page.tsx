@@ -13,6 +13,8 @@ import {
 import { BookStack } from "@/components/marketing/book-stack"
 import { SiteFooter } from "@/components/marketing/site-footer"
 import { SiteHeader } from "@/components/marketing/site-header"
+import { StickyCta } from "@/components/marketing/sticky-cta"
+import { AnimatedStat } from "@/components/motion/counter"
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
@@ -111,6 +113,7 @@ const FAQS = [
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
+      <StickyCta />
       <SiteHeader />
 
       <main>
@@ -123,14 +126,19 @@ export default function HomePage() {
                 <Sparkles className="mr-1 h-3 w-3" /> AI book creation studio
               </Badge>
               <h1 className="font-display text-4xl font-medium leading-[1.1] tracking-tight text-balance sm:text-5xl lg:text-6xl">
-                Turn your idea into a <span className="italic text-gold">complete book</span>
+                Turn your idea into a{" "}
+                <span
+                  className="animate-shimmer bg-clip-text italic text-transparent [background-image:linear-gradient(110deg,hsl(var(--gold))45%,hsl(var(--gold-end))50%,hsl(var(--gold))55%)] [background-size:250%_100%]"
+                >
+                  complete book
+                </span>
               </h1>
               <p className="mt-6 max-w-lg text-lg text-muted-foreground text-balance">
                 Describe what you want to write. EbooksHub plans the structure, writes every chapter, illustrates the
                 pages, and hands you a book to edit, preview, and export.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" variant="gold" asChild>
+                <Button size="lg" variant="gold" asChild className="animate-pulse-ring">
                   <Link href="/signup">Create Your Book</Link>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
@@ -149,7 +157,7 @@ export default function HomePage() {
           <RevealGroup className="container grid grid-cols-3 gap-6 text-center">
             {STATS.map((stat) => (
               <RevealItem key={stat.label}>
-                <p className="font-display text-2xl font-medium sm:text-3xl">{stat.value}</p>
+                <AnimatedStat value={stat.value} />
                 <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
               </RevealItem>
             ))}

@@ -8,11 +8,11 @@ const COVERS = [
 export function BookStack() {
   return (
     <div className="relative mx-auto flex h-[360px] w-full max-w-md items-center justify-center sm:h-[420px]">
-      <div className="absolute h-64 w-64 rounded-full bg-gold-gradient opacity-20 blur-3xl" />
+      <div className="absolute h-64 w-64 animate-glow-breathe rounded-full bg-gold-gradient blur-3xl" />
       {COVERS.map((cover, i) => (
         <div
           key={cover.title}
-          className={`absolute flex aspect-[2/3] w-40 flex-col justify-between rounded-xl border border-white/10 bg-gradient-to-br p-4 text-primary-foreground shadow-lift sm:w-48 ${cover.tone} ${cover.rotate} ${cover.y}`}
+          className={`absolute flex aspect-[2/3] w-40 flex-col justify-between rounded-xl border border-white/10 bg-gradient-to-br p-4 text-primary-foreground shadow-lift transition-transform duration-300 ease-out hover:scale-105 hover:!rotate-0 sm:w-48 ${cover.tone} ${cover.rotate} ${cover.y}`}
           style={{ zIndex: i, animationDelay: `${i * 0.6}s` }}
         >
           <div className="animate-float" style={{ animationDelay: `${i * 0.7}s` }}>
