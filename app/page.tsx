@@ -13,7 +13,6 @@ import {
 import { BookStack } from "@/components/marketing/book-stack"
 import { SiteFooter } from "@/components/marketing/site-footer"
 import { SiteHeader } from "@/components/marketing/site-header"
-import { StickyCta } from "@/components/marketing/sticky-cta"
 import { AnimatedStat } from "@/components/motion/counter"
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -113,7 +112,6 @@ const FAQS = [
 export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <StickyCta />
       <SiteHeader />
 
       <main>

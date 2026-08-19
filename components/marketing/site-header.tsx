@@ -3,9 +3,11 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
+import { useMotionValueEvent, useScroll } from "motion/react"
 
 import { Logo } from "@/components/brand/logo"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
@@ -16,6 +18,12 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false)
+  const [pastHero, setPastHero] = useState(false)
+  const { scrollY } = useScroll()
+  // Once the visitor has scrolled past the hero (where the primary CTA
+  // already pulses), give this always-visible header CTA the same nudge so
+  // the invitation to sign up doesn't disappear once they're reading.
+  useMotionValueEvent(scrollY, "change", (y) => setPastHero(y > 560))
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -34,7 +42,7 @@ export function SiteHeader() {
           <Button variant="ghost" asChild>
             <Link href="/signin">Sign in</Link>
           </Button>
-          <Button variant="gold" asChild>
+          <Button variant="gold" asChild className={cn(pastHero && "animate-pulse-ring")}>
             <Link href="/signup">Create a Book</Link>
           </Button>
         </div>
