@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { appUrl, stripe, STRIPE_PRICE_IDS } from "@/lib/stripe"
+import { appUrl, getStripe, STRIPE_PRICE_IDS } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 
 const Schema = z.object({ plan: z.enum(["creator", "pro"]) })
@@ -15,6 +15,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Choose Creator or Pro." }, { status: 400 })
   const price = STRIPE_PRICE_IDS[parsed.data.plan]
   if (!price || !process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: "Billing is not configured yet." }, { status: 503 })
+  const stripe = getStripe()
 
   const { data: profile, error: profileError } = await supabase.from("profiles").select("stripe_customer_id").eq("id", user.id).single()
   if (profileError || !profile) return NextResponse.json({ error: "Could not load your account." }, { status: 500 })

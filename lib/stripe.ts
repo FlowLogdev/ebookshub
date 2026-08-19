@@ -1,9 +1,10 @@
 import Stripe from "stripe"
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-07-29.dahlia",
-  typescript: true,
-})
+export function getStripe() {
+  const secretKey = process.env.STRIPE_SECRET_KEY
+  if (!secretKey) throw new Error("STRIPE_SECRET_KEY is not configured")
+  return new Stripe(secretKey, { apiVersion: "2026-07-29.dahlia", typescript: true })
+}
 
 export const STRIPE_PRICE_IDS = {
   creator: process.env.STRIPE_PRICE_CREATOR_MONTHLY,

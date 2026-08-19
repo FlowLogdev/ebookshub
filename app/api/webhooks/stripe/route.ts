@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 
-import { stripe } from "@/lib/stripe"
+import { getStripe } from "@/lib/stripe"
 import { createServiceRoleClient } from "@/lib/supabase/server"
 
 function planFromSubscription(subscription: Stripe.Subscription): "creator" | "pro" | "free" {
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(await req.text(), signature, process.env.STRIPE_WEBHOOK_SECRET)
+    event = getStripe().webhooks.constructEvent(await req.text(), signature, process.env.STRIPE_WEBHOOK_SECRET)
   } catch {
     return NextResponse.json({ error: "Invalid webhook signature." }, { status: 400 })
   }
