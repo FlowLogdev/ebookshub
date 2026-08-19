@@ -18,18 +18,26 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if ("error" in ctx) return ctx.error
   const { supabase } = ctx
 
-  const [{ data: book, error }, { data: blueprint }, { data: chapters }, { data: covers }, { data: characters }] =
+  const [{ data: book, error }, { data: blueprint }, { data: chapters }, { data: covers }, { data: characters }, { data: images }] =
     await Promise.all([
       supabase.from("books").select("*").eq("id", id).single(),
       supabase.from("book_blueprints").select("*").eq("book_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("chapters").select("*").eq("book_id", id).order("order_index", { ascending: true }),
       supabase.from("covers").select("*").eq("book_id", id).order("created_at", { ascending: false }),
       supabase.from("characters").select("*").eq("book_id", id).order("created_at", { ascending: true }),
+      supabase.from("images").select("*").eq("book_id", id).order("created_at", { ascending: true }),
     ])
 
   if (error || !book) return NextResponse.json({ error: error?.message ?? "Book not found." }, { status: 404 })
 
-  return NextResponse.json({ book, blueprint, chapters: chapters ?? [], covers: covers ?? [], characters: characters ?? [] })
+  return NextResponse.json({
+    book,
+    blueprint,
+    chapters: chapters ?? [],
+    covers: covers ?? [],
+    characters: characters ?? [],
+    images: images ?? [],
+  })
 }
 
 const UpdateBookSchema = z.object({

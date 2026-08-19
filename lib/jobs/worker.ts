@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { generateImageWithFallback } from "@/lib/ai/image-provider"
 import { generateBookBlueprint, generateBookConcept, blueprintTotalPages, capChapterWords, estimateWordsForPages } from "@/lib/book/blueprint"
 import { writeChapter } from "@/lib/book/chapter-writer"
 import { bookTypeById, FREE_TIER_MAX_WORDS } from "@/lib/book/constants"
+import { buildChapterIllustrationPrompt, chapterGetsIllustration } from "@/lib/book/illustration"
 import type { BookConcept } from "@/lib/book/schemas"
 import type { Database } from "@/lib/supabase/types"
 
@@ -240,13 +242,7 @@ async function runWriteChapter(supabase: TypedClient, bookId: string, chapterId:
 
   await supabase
     .from("chapters")
-    .update({
-      content: result.content,
-      summary: result.summary,
-      word_count: wordCount,
-      status: "complete",
-      error: null,
-    })
+    .update({ content: result.content, summary: result.summary, word_count: wordCount, error: null })
     .eq("id", chapterId)
 
   await supabase.from("chapter_versions").insert({
@@ -255,6 +251,47 @@ async function runWriteChapter(supabase: TypedClient, bookId: string, chapterId:
     word_count: wordCount,
     label: "AI generation",
   })
+
+  // Free-tier books already spend their one-shot image allowance on cover
+  // candidates (see FREE_TIER_MAX_IMAGES) — interior illustrations are a
+  // paid-tier feature so that budget isn't silently blown per chapter.
+  if (!book.is_free_tier && book.illustration_frequency !== "none" && book.illustration_frequency !== "cover_only") {
+    const { count: totalChapters } = await supabase
+      .from("chapters")
+      .select("id", { count: "exact", head: true })
+      .eq("book_id", bookId)
+
+    if (totalChapters && chapterGetsIllustration(book.illustration_frequency, chapter.chapter_number ?? chapter.order_index + 1, totalChapters)) {
+      await supabase.from("chapters").update({ status: "illustrating" }).eq("id", chapterId)
+      try {
+        const prompt = buildChapterIllustrationPrompt({
+          bookTitle: book.title,
+          imageStyle: book.image_style,
+          chapterTitle: chapter.title,
+          chapterSummary: result.summary,
+          concept,
+        })
+        const { images, provider } = await generateImageWithFallback({ prompt, size: "1024x1024", count: 1 })
+        if (images[0]) {
+          await supabase.from("images").insert({
+            book_id: bookId,
+            chapter_id: chapterId,
+            url: images[0].url,
+            prompt,
+            style: book.image_style,
+            aspect_ratio: "1:1",
+            provider,
+          })
+        }
+      } catch (err) {
+        // An illustration failing shouldn't fail the chapter's text, which
+        // is already saved above — just leave this chapter without one.
+        console.error(`Chapter illustration failed for ${chapterId}:`, err)
+      }
+    }
+  }
+
+  await supabase.from("chapters").update({ status: "complete" }).eq("id", chapterId)
 
   if (result.newFacts.length > 0) {
     await supabase.from("book_bible_facts").insert(
