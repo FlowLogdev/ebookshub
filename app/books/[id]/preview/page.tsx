@@ -4,7 +4,7 @@ import { use, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import ReactMarkdown from "react-markdown"
-import { ArrowLeft, ChevronLeft, ChevronRight, ImageIcon, Loader2, PencilLine, Rocket } from "lucide-react"
+import { ArrowLeft, ChevronLeft, ChevronRight, ImageIcon, LayoutDashboard, Loader2, PencilLine, Rocket } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -72,9 +72,14 @@ export default function PreviewPage({ params }: { params: Promise<{ id: string }
   return (
     <div className="flex min-h-screen flex-col bg-neutral-950">
       <header className="flex h-14 items-center justify-between border-b border-white/10 px-4 text-white">
-        <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10 hover:text-white">
-          <Link href={`/books/${bookId}/edit`}><ArrowLeft className="h-4 w-4" /> Back to editor</Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10 hover:text-white">
+            <Link href="/dashboard"><LayoutDashboard className="h-4 w-4" /> Dashboard</Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10 hover:text-white">
+            <Link href={`/books/${bookId}/edit`}><ArrowLeft className="h-4 w-4" /> Back to editor</Link>
+          </Button>
+        </div>
         <p className="text-sm text-white/70">{book.title} — Preview</p>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10 hover:text-white">

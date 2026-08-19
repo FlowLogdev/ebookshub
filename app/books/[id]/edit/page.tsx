@@ -11,6 +11,7 @@ import {
   Cloud,
   CloudOff,
   Image as ImageIcon,
+  ImagePlus,
   Loader2,
   RotateCcw,
   Sparkles,
@@ -22,6 +23,7 @@ import { toast } from "sonner"
 import { Logo } from "@/components/brand/logo"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { WRITING_ASSISTANT_ACTIONS, type WritingAssistantAction } from "@/lib/ai/writing-assistant"
@@ -30,6 +32,7 @@ import { cn } from "@/lib/utils"
 
 type Book = Database["public"]["Tables"]["books"]["Row"]
 type Chapter = Database["public"]["Tables"]["chapters"]["Row"]
+type BookImage = Database["public"]["Tables"]["images"]["Row"]
 
 type SaveState = "idle" | "saving" | "saved" | "error"
 
@@ -45,6 +48,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
   const [book, setBook] = useState<Book | null>(null)
   const [chapters, setChapters] = useState<Chapter[]>([])
+  const [images, setImages] = useState<BookImage[]>([])
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null)
   const [content, setContent] = useState("")
   const [title, setTitle] = useState("")
@@ -52,12 +56,20 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [assistLoading, setAssistLoading] = useState<WritingAssistantAction | null>(null)
   const [assistResult, setAssistResult] = useState<{ action: WritingAssistantAction; text: string; selStart: number; selEnd: number } | null>(null)
+  const [imageDialogOpen, setImageDialogOpen] = useState(false)
+  const [imageMode, setImageMode] = useState<"upload" | "generate">("upload")
+  const [imagePrompt, setImagePrompt] = useState("")
+  const [imageBusy, setImageBusy] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedContent = useRef<string>("")
 
   const activeChapter = useMemo(() => chapters.find((c) => c.id === activeChapterId) ?? null, [chapters, activeChapterId])
+  const activeChapterImage = useMemo(
+    () => images.find((image) => image.chapter_id === activeChapterId) ?? null,
+    [images, activeChapterId],
+  )
 
   const loadBook = useCallback(async () => {
     const res = await fetch(`/api/books/${bookId}`)
@@ -68,6 +80,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     }
     setBook(data.book)
     setChapters(data.chapters)
+    setImages(data.images ?? [])
     if (!activeChapterId && data.chapters.length > 0) {
       setActiveChapterId(data.chapters[0].id)
     }
@@ -172,6 +185,46 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     toast.success("Chapter queued for regeneration.")
   }
 
+  async function saveChapterImage(payload: { mode: "upload" | "generate"; image?: string; prompt?: string }) {
+    if (!activeChapterId) return
+    setImageBusy(true)
+    try {
+      const res = await fetch(`/api/books/${bookId}/images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapterId: activeChapterId, ...payload }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Unable to save chapter image.")
+      setImages((previous) => [...previous.filter((image) => image.chapter_id !== activeChapterId), data.image])
+      setImageDialogOpen(false)
+      setImagePrompt("")
+      toast.success(payload.mode === "generate" ? "Chapter image generated." : "Chapter image added.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save chapter image.")
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
+  function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file.")
+      return
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Choose an image smaller than 3 MB.")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => saveChapterImage({ mode: "upload", image: String(reader.result) })
+    reader.onerror = () => toast.error("Unable to read that image.")
+    reader.readAsDataURL(file)
+  }
+
   if (loading || !book) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -184,10 +237,10 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     <div className="flex h-screen flex-col">
       <header className="flex h-14 items-center justify-between border-b px-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard"><ArrowLeft className="h-4 w-4" /></Link>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/dashboard"><ArrowLeft className="h-4 w-4" /> Dashboard</Link>
           </Button>
-          <Logo iconOnly />
+          <Logo iconOnly href="/dashboard" />
           <span className="text-sm font-medium">{book.title}</span>
         </div>
         <SaveIndicator state={saveState} />
@@ -260,8 +313,27 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
           )}
         </main>
 
-        {/* Right: AI assistant */}
+        {/* Right: chapter image and AI assistant */}
         <aside className="overflow-y-auto border-l bg-paper p-4">
+          <section className="border-b pb-5">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <ImagePlus className="h-4 w-4" /> Chapter image
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Add your own photo or create one with AI for this chapter.</p>
+            {activeChapterImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={activeChapterImage.url} alt="Current chapter illustration" className="mt-3 aspect-square w-full rounded-lg object-cover" />
+            ) : (
+              <div className="mt-3 flex aspect-square w-full items-center justify-center rounded-lg border border-dashed bg-background text-center text-xs text-muted-foreground">
+                No image for this chapter yet
+              </div>
+            )}
+            <Button className="mt-3 w-full" variant="outline" size="sm" disabled={!activeChapter} onClick={() => setImageDialogOpen(true)}>
+              <ImagePlus className="h-3.5 w-3.5" /> {activeChapterImage ? "Replace image" : "Add image"}
+            </Button>
+          </section>
+
+          <section className="pt-5">
           <p className="flex items-center gap-1.5 text-sm font-medium">
             <Wand2 className="h-4 w-4" /> AI Assistant
           </p>
@@ -303,8 +375,37 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
               </div>
             </div>
           )}
+          </section>
         </aside>
       </div>
+
+      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{activeChapterImage ? "Replace chapter image" : "Add a chapter image"}</DialogTitle>
+            <DialogDescription>Choose a photo from your device or describe an image for AI to create.</DialogDescription>
+          </DialogHeader>
+          <div className="flex rounded-lg bg-muted p-1">
+            <Button type="button" size="sm" variant={imageMode === "upload" ? "secondary" : "ghost"} className="flex-1" onClick={() => setImageMode("upload")}>Upload photo</Button>
+            <Button type="button" size="sm" variant={imageMode === "generate" ? "secondary" : "ghost"} className="flex-1" onClick={() => setImageMode("generate")}>Generate with AI</Button>
+          </div>
+          {imageMode === "upload" ? (
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center text-sm hover:bg-muted/50">
+              <ImagePlus className="h-6 w-6 text-muted-foreground" />
+              <span>Choose a JPG, PNG, WebP, or GIF up to 3 MB</span>
+              <Input className="sr-only" type="file" accept="image/*" disabled={imageBusy} onChange={handleImageUpload} />
+            </label>
+          ) : (
+            <div className="space-y-3">
+              <Textarea value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} maxLength={1000} placeholder="Example: A curious child following a glowing golden light through a moonlit forest, warm storybook watercolor." />
+              <Button className="w-full" disabled={imageBusy || imagePrompt.trim().length < 5} onClick={() => saveChapterImage({ mode: "generate", prompt: imagePrompt.trim() })}>
+                {imageBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Generate image
+              </Button>
+            </div>
+          )}
+          {imageBusy && imageMode === "upload" && <p className="text-center text-xs text-muted-foreground">Adding your image…</p>}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

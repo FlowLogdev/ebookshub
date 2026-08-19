@@ -95,7 +95,7 @@ function GeneratingPageInner({ params }: { params: Promise<{ id: string }> }) {
     <div className="min-h-screen bg-paper pb-24">
       <header className="border-b bg-background">
         <div className="container flex h-16 items-center justify-between">
-          <Logo />
+          <Logo href="/dashboard" />
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard">Save & exit</Link>
           </Button>

@@ -213,7 +213,7 @@ function CoverPageInner({ params }: { params: Promise<{ id: string }> }) {
     <div className="min-h-screen bg-paper pb-24">
       <header className="border-b bg-background">
         <div className="container flex h-16 items-center justify-between">
-          <Logo />
+          <Logo href="/dashboard" />
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/books/${bookId}/preview`}><ArrowLeft className="h-4 w-4" /> Back to preview</Link>
           </Button>

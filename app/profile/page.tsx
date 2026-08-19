@@ -81,7 +81,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-paper">
       <header className="border-b bg-background">
         <div className="container flex h-16 items-center justify-between">
-          <Logo />
+          <Logo href="/dashboard" />
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard"><ArrowLeft className="h-4 w-4" /> Dashboard</Link>
           </Button>

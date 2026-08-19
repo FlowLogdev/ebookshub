@@ -190,7 +190,7 @@ export default function CreateBookPage() {
     return (
       <div className="min-h-screen bg-paper">
         <header className="container flex h-16 items-center justify-between">
-          <Logo />
+          <Logo href="/dashboard" />
         </header>
         <div className="container flex max-w-lg flex-col items-center pb-24 pt-16 text-center">
           <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">You&apos;ve used your free ebook</h1>
@@ -209,7 +209,7 @@ export default function CreateBookPage() {
   return (
     <div className="min-h-screen bg-paper">
       <header className="container flex h-16 items-center justify-between">
-        <Logo />
+        <Logo href="/dashboard" />
         <p className="text-sm text-muted-foreground">Step {step} of 3</p>
       </header>
 
