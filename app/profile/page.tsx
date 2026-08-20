@@ -2,9 +2,19 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, CreditCard, Loader2 } from "lucide-react"
+import { AlertTriangle, ArrowLeft, CreditCard, Loader2, XCircle } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Logo } from "@/components/brand/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,9 +30,16 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("")
   const [website, setWebsite] = useState("")
   const [language, setLanguage] = useState("en")
+  const [hasSubscription, setHasSubscription] = useState(false)
+  const [accountCanceled, setAccountCanceled] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [billingLoading, setBillingLoading] = useState(false)
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false)
+  const [cancelSubmitting, setCancelSubmitting] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState("")
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
 
   useEffect(() => {
     fetch("/api/profile")
@@ -34,6 +51,8 @@ export default function ProfilePage() {
           setBio(data.profile.bio ?? "")
           setWebsite(data.profile.website ?? "")
           setLanguage(data.profile.language ?? "en")
+          setHasSubscription(Boolean(data.profile.stripe_subscription_id))
+          setAccountCanceled(Boolean(data.profile.account_canceled_at))
         }
         setEmail(data.email ?? "")
         setLoading(false)
@@ -67,6 +86,34 @@ export default function ProfilePage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not open billing.")
     } finally { setBillingLoading(false) }
+  }
+
+  async function cancelMembership() {
+    setCancelSubmitting(true)
+    try {
+      const res = await fetch("/api/account/cancel", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed to cancel membership.")
+      toast.success("Membership canceled.")
+      window.location.assign("/account-canceled")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to cancel membership.")
+      setCancelSubmitting(false)
+      setCancelConfirmOpen(false)
+    }
+  }
+
+  async function deleteAccount() {
+    setDeleteSubmitting(true)
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete account.")
+      window.location.assign("/")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete account.")
+      setDeleteSubmitting(false)
+    }
   }
 
   if (loading) {
@@ -129,13 +176,83 @@ export default function ProfilePage() {
           </Button>
           <div className="border-t pt-6">
             <h2 className="font-medium">Billing</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Manage your EbooksHub subscription, payment method, or cancellation in Stripe.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Manage your payment method and invoices in Stripe.</p>
             <Button variant="outline" className="mt-3" onClick={manageBilling} disabled={billingLoading}>
               {billingLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />} Manage subscription
             </Button>
           </div>
+
+          {hasSubscription && (
+            <div className="border-t pt-6">
+              <h2 className="font-medium">Cancel membership</h2>
+              {accountCanceled ? (
+                <p className="mt-1 text-sm text-muted-foreground">Your membership is already canceled.</p>
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Cancelling stops billing and revokes dashboard access immediately. Within 7 days of your last
+                    charge you&apos;re eligible for a full refund — see our <Link href="/refund" className="underline">refund policy</Link>.
+                  </p>
+                  <Button variant="outline" className="mt-3 text-destructive hover:text-destructive" onClick={() => setCancelConfirmOpen(true)}>
+                    <XCircle className="h-4 w-4" /> Cancel membership
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="border-t pt-6">
+            <h2 className="font-medium text-destructive">Delete account</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Permanently deletes your account, books, and all associated data. This cannot be undone.
+            </p>
+            <Button variant="destructive" className="mt-3" onClick={() => setDeleteConfirmOpen(true)}>
+              <AlertTriangle className="h-4 w-4" /> Delete account
+            </Button>
+          </div>
         </div>
       </div>
+
+      <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel your membership?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;ll lose dashboard access immediately. If it&apos;s within 7 days of your last charge, we&apos;ll
+              refund it — otherwise billing simply stops and won&apos;t renew.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelSubmitting}>Keep membership</AlertDialogCancel>
+            <AlertDialogAction onClick={cancelMembership} disabled={cancelSubmitting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {cancelSubmitting && <Loader2 className="h-4 w-4 animate-spin" />} Cancel membership
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={(open) => { setDeleteConfirmOpen(open); if (!open) setDeleteConfirmText("") }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes your account, every book you&apos;ve created, and all associated data. This
+              cannot be undone. Type DELETE to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="DELETE" />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteAccount}
+              disabled={deleteSubmitting || deleteConfirmText !== "DELETE"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteSubmitting && <Loader2 className="h-4 w-4 animate-spin" />} Delete account permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

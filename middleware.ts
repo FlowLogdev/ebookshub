@@ -41,6 +41,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  // account_canceled_at is set the instant a user cancels their membership
+  // (see /api/account/cancel) — separate from Stripe's own subscription
+  // status, which can stay "active" until the paid period actually ends.
+  // Dashboard access is revoked right away regardless of billing timing.
+  // Free-tier users never have this set, so they're unaffected.
+  if (isProtected && user) {
+    const { data: profile } = await supabase.from("profiles").select("account_canceled_at").eq("id", user.id).maybeSingle()
+    if (profile?.account_canceled_at) return NextResponse.redirect(new URL("/account-canceled", req.url))
+  }
+
   if (isAuthRoute && user) {
     const redirectParam = searchParams.get("redirect")
     const destination = redirectParam?.startsWith("/") ? redirectParam : "/dashboard"

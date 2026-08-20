@@ -28,7 +28,19 @@ export async function POST(req: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
     const userId = session.client_reference_id ?? session.metadata?.user_id
-    if (userId && typeof session.customer === "string") await supabase.from("profiles").update({ stripe_customer_id: session.customer }).eq("id", userId)
+    if (userId && typeof session.customer === "string") {
+      // subscription_started_at anchors the 7-day refund window (see
+      // /api/account/cancel) and account_canceled_at is cleared since a
+      // completed checkout means they're actively subscribed again.
+      await supabase
+        .from("profiles")
+        .update({
+          stripe_customer_id: session.customer,
+          subscription_started_at: new Date().toISOString(),
+          account_canceled_at: null,
+        })
+        .eq("id", userId)
+    }
   }
 
   if (event.type.startsWith("customer.subscription.")) {
