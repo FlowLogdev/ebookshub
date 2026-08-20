@@ -37,7 +37,7 @@ export async function middleware(req: NextRequest) {
 
   if (isProtected && !user) {
     const redirectUrl = new URL("/signin", req.url)
-    redirectUrl.searchParams.set("redirect", pathname)
+    redirectUrl.searchParams.set("redirect", `${pathname}${req.nextUrl.search}`)
     return NextResponse.redirect(redirectUrl)
   }
 

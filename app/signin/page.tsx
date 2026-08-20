@@ -24,6 +24,7 @@ export default function SignInPage() {
 function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -39,14 +40,14 @@ function SignInForm() {
       toast.error(error.message)
       return
     }
-    router.push(searchParams.get("redirect") ?? "/dashboard")
+    router.push(redirect?.startsWith("/") ? redirect : "/dashboard")
     router.refresh()
   }
 
   return (
     <AuthShell title="Welcome back" description="Sign in to keep working on your books.">
       <div className="space-y-4">
-        <GoogleButton redirect={searchParams.get("redirect")} />
+        <GoogleButton redirect={redirect} />
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <div className="h-px flex-1 bg-border" />
@@ -76,7 +77,7 @@ function SignInForm() {
 
         <p className="text-center text-sm text-muted-foreground">
           New to EbooksHub?{" "}
-          <Link href="/signup" className="text-primary hover:underline">
+          <Link href={redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : "/signup"} className="text-primary hover:underline">
             Create an account
           </Link>
         </p>
