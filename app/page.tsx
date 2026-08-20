@@ -20,8 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { BOOK_TYPES, MAX_PAGE_COUNT, MIN_PAGE_COUNT } from "@/lib/book/constants"
-import { PLAN_TIERS } from "@/lib/pricing"
-import { PlanButton } from "@/components/billing/plan-button"
+import { PricingCards } from "@/components/billing/pricing-cards"
 
 const STATS = [
   { value: "5-300", label: "pages per book" },
@@ -335,30 +334,9 @@ export default function HomePage() {
               <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">Simple, usage-based pricing</h2>
               <p className="mt-3 text-muted-foreground">Start free. Upgrade when your books get longer or more frequent.</p>
             </Reveal>
-            <RevealGroup className="mt-14 grid gap-6 lg:grid-cols-3">
-              {PLAN_TIERS.map((plan) => (
-                <RevealItem key={plan.id}>
-                  <Card className={`flex h-full flex-col p-8 ${plan.highlighted ? "border-gold shadow-lift ring-1 ring-gold/30" : ""}`}>
-                    {plan.highlighted && <Badge variant="gold" className="mb-4 w-fit">Most popular</Badge>}
-                    <h3 className="font-display text-xl font-medium">{plan.name}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
-                    <p className="mt-6">
-                      <span className="font-display text-4xl font-medium">${plan.priceMonthly}</span>
-                      <span className="text-muted-foreground"> /month</span>
-                    </p>
-                    <ul className="mt-6 flex-1 space-y-3 text-sm">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-start gap-2">
-                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <PlanButton plan={plan.id} highlighted={plan.highlighted} />
-                  </Card>
-                </RevealItem>
-              ))}
-            </RevealGroup>
+            <Reveal className="mt-6">
+              <PricingCards />
+            </Reveal>
           </div>
         </section>
 

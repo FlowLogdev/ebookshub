@@ -6,8 +6,8 @@ import type { Database } from "@/lib/supabase/types"
 type TypedClient = SupabaseClient<Database>
 type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 
-/** Anchor on the marketing page's pricing section — the "upgrade page" every gate points to. */
-export const UPGRADE_URL = "/#pricing"
+/** Dedicated pricing page — the upgrade destination used by every plan gate. */
+export const UPGRADE_URL = "/pricing"
 
 export const FREE_TIER_LIMITS = {
   maxPages: FREE_TIER_MAX_PAGES,

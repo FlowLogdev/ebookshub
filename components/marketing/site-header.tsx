@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#capabilities", label: "Capabilities" },
-  { href: "#pricing", label: "Pricing" },
+  { href: "/pricing", label: "Pricing" },
   { href: "#faq", label: "FAQ" },
 ]
 
@@ -32,9 +32,11 @@ export function SiteHeader() {
 
         <nav className="hidden items-center gap-8 md:flex">
           {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              {link.label}
-            </a>
+            link.href.startsWith("/") ? (
+              <Link key={link.href} href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">{link.label}</Link>
+            ) : (
+              <a key={link.href} href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">{link.label}</a>
+            )
           ))}
         </nav>
 
@@ -61,14 +63,11 @@ export function SiteHeader() {
         <div className="border-t border-border/60 bg-background md:hidden">
           <nav className="container flex flex-col gap-1 py-4">
             {NAV_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                onClick={() => setOpen(false)}
-              >
-                {link.label}
-              </a>
+              link.href.startsWith("/") ? (
+                <Link key={link.href} href={link.href} className="rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setOpen(false)}>{link.label}</Link>
+              ) : (
+                <a key={link.href} href={link.href} className="rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setOpen(false)}>{link.label}</a>
+              )
             ))}
             <div className="mt-2 flex flex-col gap-2 px-3">
               <Button variant="outline" asChild>

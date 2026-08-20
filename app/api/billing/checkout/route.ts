@@ -4,7 +4,10 @@ import { z } from "zod"
 import { appUrl, getStripe, STRIPE_PRICE_IDS } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 
-const Schema = z.object({ plan: z.enum(["creator", "pro"]) })
+const Schema = z.object({
+  plan: z.enum(["creator", "pro"]),
+  billingInterval: z.enum(["monthly", "annual"]).default("monthly"),
+})
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -13,8 +16,12 @@ export async function POST(req: Request) {
 
   const parsed = Schema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Choose Creator or Pro." }, { status: 400 })
-  const price = STRIPE_PRICE_IDS[parsed.data.plan]
-  if (!price || !process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: "Billing is not configured yet." }, { status: 503 })
+  const price = STRIPE_PRICE_IDS[parsed.data.plan][parsed.data.billingInterval]
+  const missing = [
+    !process.env.STRIPE_SECRET_KEY && "STRIPE_SECRET_KEY",
+    !price && `STRIPE_PRICE_${parsed.data.plan.toUpperCase()}_${parsed.data.billingInterval === "annual" ? "ANNUAL" : "MONTHLY"}`,
+  ].filter(Boolean)
+  if (!price || !process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: `Billing setup is missing: ${missing.join(", ")}.` }, { status: 503 })
   const stripe = getStripe()
 
   const { data: profile, error: profileError } = await supabase.from("profiles").select("stripe_customer_id").eq("id", user.id).single()
@@ -28,7 +35,7 @@ export async function POST(req: Request) {
     line_items: [{ price, quantity: 1 }],
     allow_promotion_codes: true,
     success_url: `${appUrl()}/dashboard?billing=success`,
-    cancel_url: `${appUrl()}/#pricing`,
+    cancel_url: `${appUrl()}/pricing`,
     subscription_data: { metadata: { user_id: user.id, plan_id: parsed.data.plan } },
     metadata: { user_id: user.id, plan_id: parsed.data.plan },
   })

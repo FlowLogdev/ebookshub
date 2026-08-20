@@ -7,8 +7,14 @@ export function getStripe() {
 }
 
 export const STRIPE_PRICE_IDS = {
-  creator: process.env.STRIPE_PRICE_CREATOR_MONTHLY,
-  pro: process.env.STRIPE_PRICE_PRO_MONTHLY,
+  creator: {
+    monthly: process.env.STRIPE_PRICE_CREATOR_MONTHLY,
+    annual: process.env.STRIPE_PRICE_CREATOR_ANNUAL,
+  },
+  pro: {
+    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY,
+    annual: process.env.STRIPE_PRICE_PRO_ANNUAL,
+  },
 } as const
 
 export function appUrl() {

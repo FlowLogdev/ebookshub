@@ -7,6 +7,7 @@ export interface PlanDisplay {
   id: "free" | "creator" | "pro"
   name: string
   priceMonthly: number
+  priceAnnual?: number
   tagline: string
   features: string[]
   highlighted?: boolean
@@ -24,6 +25,7 @@ export const PLAN_TIERS: PlanDisplay[] = [
     id: "creator",
     name: "Creator",
     priceMonthly: 19,
+    priceAnnual: 190,
     tagline: "For regular writers and illustrators.",
     features: ["Unlimited projects", "Books up to 150 pages", "Character creator & consistency", "PDF & ePub export, no watermark"],
     highlighted: true,
@@ -32,6 +34,7 @@ export const PLAN_TIERS: PlanDisplay[] = [
     id: "pro",
     name: "Pro",
     priceMonthly: 49,
+    priceAnnual: 490,
     tagline: "Full-length, professional projects.",
     features: ["Books up to 300 pages", "Premium image models", "Priority generation", "Commercial export rights"],
   },
