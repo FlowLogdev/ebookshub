@@ -1,15 +1,18 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { BookOpen, Plus } from "lucide-react"
 
+import { PlanButton } from "@/components/billing/plan-button"
 import { BookCard, type DashboardBook } from "@/components/dashboard/book-card"
 import { DashboardTopbar } from "@/components/dashboard/topbar"
 import { Reveal, RevealGroup, RevealItem } from "@/components/motion/reveal"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
+import { PLAN_TIERS } from "@/lib/pricing"
 
 const TABS = [
   { id: "all", label: "All books", statuses: null },
@@ -19,6 +22,15 @@ const TABS = [
 ] as const
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+
+function DashboardContent() {
+  const searchParams = useSearchParams()
   const [books, setBooks] = useState<DashboardBook[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("all")
@@ -43,6 +55,7 @@ export default function DashboardPage() {
   const activeTab = TABS.find((t) => t.id === tab)!
   const statuses = activeTab.statuses as readonly string[] | null
   const filtered = statuses ? books.filter((b) => statuses.includes(b.status)) : books
+  const showPricing = searchParams.get("upgrade") === "creator" || searchParams.get("upgrade") === "pro"
 
   return (
     <div className="min-h-screen bg-paper">
@@ -62,6 +75,31 @@ export default function DashboardPage() {
             </TabsList>
           </Tabs>
         </Reveal>
+
+        {showPricing && (
+          <section className="mt-8 rounded-2xl border bg-card p-6 shadow-soft">
+            <p className="text-sm font-medium text-primary">Choose your plan</p>
+            <h2 className="mt-1 font-display text-2xl font-medium">Upgrade when you&apos;re ready</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Free keeps one short, text-only ebook. Choose a paid plan to open secure Stripe Checkout.</p>
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              {PLAN_TIERS.map((plan) => (
+                <div key={plan.id} className={`rounded-xl border p-5 ${plan.highlighted ? "border-gold bg-gold/5" : ""}`}>
+                  <h3 className="font-display text-xl font-medium">{plan.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{plan.tagline}</p>
+                  <p className="mt-4 font-display text-3xl font-medium">{plan.priceMonthly === 0 ? "Free" : `$${plan.priceMonthly}/mo`}</p>
+                  <ul className="mt-4 space-y-2 text-sm text-muted-foreground">{plan.features.map((feature) => <li key={feature}>• {feature}</li>)}</ul>
+                  {plan.id === "free" ? (
+                    <Button asChild variant="outline" className="mt-8 w-full">
+                      <Link href="/create">Continue with Free</Link>
+                    </Button>
+                  ) : (
+                    <PlanButton plan={plan.id} highlighted={plan.highlighted} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="mt-8">
           {loading ? (

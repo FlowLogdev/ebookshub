@@ -18,7 +18,7 @@ export const PLAN_TIERS: PlanDisplay[] = [
     name: "Free",
     priceMonthly: 0,
     tagline: "Try the full pipeline on a short book.",
-    features: ["1 active project", "Books up to 30 pages", "Standard AI writing", "Watermarked export"],
+    features: ["1 ebook total", "Up to 5 pages / 1,000 words", "Text only — no images", "Watermarked preview"],
   },
   {
     id: "creator",

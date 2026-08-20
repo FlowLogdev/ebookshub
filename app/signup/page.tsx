@@ -23,6 +23,7 @@ export default function SignUpPage() {
 
 function SignUpForm() {
   const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -35,12 +36,15 @@ function SignUpForm() {
     const supabase = createClient()
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
 
+    const callback = new URL("/auth/callback", appUrl)
+    if (redirect?.startsWith("/")) callback.searchParams.set("redirect", redirect)
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: name },
-        emailRedirectTo: new URL("/auth/callback", appUrl).toString(),
+        emailRedirectTo: callback.toString(),
       },
     })
     setLoading(false)
@@ -69,7 +73,7 @@ function SignUpForm() {
   return (
     <AuthShell title="Create your account" description="Start turning your ideas into complete books.">
       <div className="space-y-4">
-        <GoogleButton redirect={searchParams.get("redirect")} />
+        <GoogleButton redirect={redirect} />
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <div className="h-px flex-1 bg-border" />
@@ -106,7 +110,7 @@ function SignUpForm() {
 
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/signin" className="text-primary hover:underline">
+          <Link href={redirect ? `/signin?redirect=${encodeURIComponent(redirect)}` : "/signin"} className="text-primary hover:underline">
             Sign in
           </Link>
         </p>

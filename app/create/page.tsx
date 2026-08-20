@@ -119,7 +119,12 @@ export default function CreateBookPage() {
       .then((data) => {
         if (data.profile) {
           setProfile(data.profile)
-          if (data.profile.plan_id === "free") setPageCount(FREE_TIER_MAX_PAGES)
+          if (data.profile.plan_id === "free") {
+            setPageCount(FREE_TIER_MAX_PAGES)
+            setRequestedImageCount("0")
+            setUploadedImages([])
+            setReferenceImage(null)
+          }
         }
       })
       .finally(() => setProfileLoading(false))
@@ -156,9 +161,9 @@ export default function CreateBookPage() {
           illustrationFrequency,
           dimensions,
           referenceImage: referenceImage || undefined,
-          requestedImageCount: Number(requestedImageCount),
-          imageSource,
-          uploadedImages: uploadedImages.map((image) => image.data),
+          requestedImageCount: isFreePlan ? 0 : Number(requestedImageCount),
+          imageSource: isFreePlan ? "ai" : imageSource,
+          uploadedImages: isFreePlan ? [] : uploadedImages.map((image) => image.data),
           frontCoverCopy: frontCoverCopy || undefined,
           backCoverCopy: backCoverCopy || undefined,
         }),
@@ -195,8 +200,8 @@ export default function CreateBookPage() {
         <div className="container flex max-w-lg flex-col items-center pb-24 pt-16 text-center">
           <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">You&apos;ve used your free ebook</h1>
           <p className="mt-3 text-muted-foreground">
-            The Free plan includes one ebook per account (up to {FREE_TIER_MAX_PAGES} pages, {FREE_TIER_MAX_WORDS} words, and{" "}
-            {FREE_TIER_MAX_IMAGES} images). Upgrade to create more books with longer lengths and premium models.
+            The Free plan includes one text-only ebook per account (up to {FREE_TIER_MAX_PAGES} pages and {FREE_TIER_MAX_WORDS} words).
+            Upgrade to create more books with longer lengths and images.
           </p>
           <Button variant="gold" className="mt-6" onClick={() => router.push(UPGRADE_URL)}>
             See upgrade options
@@ -224,8 +229,7 @@ export default function CreateBookPage() {
 
         {isFreePlan && (
           <p className="mt-2 text-sm text-muted-foreground">
-            Free plan: up to {FREE_TIER_MAX_PAGES} pages, {FREE_TIER_MAX_WORDS} words, and {FREE_TIER_MAX_IMAGES} images on your one free
-            ebook.{" "}
+            Free plan: one text-only ebook, up to {FREE_TIER_MAX_PAGES} pages and {FREE_TIER_MAX_WORDS} words. {" "}
             <button type="button" className="underline underline-offset-2" onClick={() => router.push(UPGRADE_URL)}>
               Upgrade for longer books
             </button>
@@ -362,7 +366,7 @@ export default function CreateBookPage() {
                 <Label htmlFor="author">Author name (optional)</Label>
                 <Input id="author" value={authorName} onChange={(e) => setAuthorName(e.target.value)} placeholder="How you'll be credited" />
               </div>
-              <div className="space-y-1.5">
+              {!isFreePlan && <div className="space-y-1.5">
                 <Label htmlFor="illustration-freq">Illustration frequency</Label>
                 <Select value={illustrationFrequency} onValueChange={setIllustrationFrequency}>
                   <SelectTrigger id="illustration-freq"><SelectValue /></SelectTrigger>
@@ -372,8 +376,8 @@ export default function CreateBookPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
+              </div>}
+              {!isFreePlan && <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="image-style">Image style</Label>
                 <Select value={imageStyle} onValueChange={setImageStyle}>
                   <SelectTrigger id="image-style"><SelectValue /></SelectTrigger>
@@ -383,8 +387,8 @@ export default function CreateBookPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-3 sm:col-span-2 rounded-xl border bg-card p-4">
+              </div>}
+              {!isFreePlan && <div className="space-y-3 sm:col-span-2 rounded-xl border bg-card p-4">
                 <div>
                   <Label htmlFor="picture-count">Pictures inside your book</Label>
                   <p className="mt-1 text-xs text-muted-foreground">Choose 1–10 pictures. Use your own photos, AI illustrations, or a combination.</p>
@@ -426,7 +430,7 @@ export default function CreateBookPage() {
                     {imageSource === "upload" && uploadedImages.length !== Number(requestedImageCount) && <p className="text-xs text-amber-700">Add all {requestedImageCount} selected photos before creating your book.</p>}
                   </>
                 )}
-              </div>
+              </div>}
               <div className="space-y-4 sm:col-span-2 rounded-xl border bg-card p-4">
                 <div><Label>Cover copy (optional)</Label><p className="mt-1 text-xs text-muted-foreground">Add up to 100 words to display on each cover. You can edit this later in Cover Studio.</p></div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -434,7 +438,7 @@ export default function CreateBookPage() {
                   <div className="space-y-1.5"><Label htmlFor="back-copy">Back cover</Label><Textarea id="back-copy" value={backCoverCopy} onChange={(e) => setBackCoverCopy(e.target.value)} placeholder="A short book description or author note" className="min-h-24" /><p className="text-right text-xs text-muted-foreground">{coverWords(backCoverCopy)}/100 words</p></div>
                 </div>
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
+              {!isFreePlan && <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="reference-image">Reference image (optional)</Label>
                 <p className="text-xs text-muted-foreground">
                   Upload a character, photo, or style reference and the AI will use it when generating your cover and
@@ -473,7 +477,7 @@ export default function CreateBookPage() {
                   className="hidden"
                   onChange={handleReferenceImageChange}
                 />
-              </div>
+              </div>}
             </div>
           </div>
         )}

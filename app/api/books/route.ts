@@ -17,7 +17,7 @@ const CreateBookSchema = z.object({
   imageStyle: z.string().optional(),
   illustrationFrequency: z.string().optional(),
   dimensions: z.string().optional(),
-  requestedImageCount: z.number().int().min(1).max(10).default(1),
+  requestedImageCount: z.number().int().min(0).max(10).default(1),
   imageSource: z.enum(["ai", "upload", "mixed"]).default("ai"),
   uploadedImages: z.array(z.string().regex(/^data:image\/[a-z0-9.+-]+;base64,/i, "uploadedImages must contain image data URIs")).max(10).default([]),
   frontCoverCopy: z.string().max(800).optional(),
@@ -79,6 +79,9 @@ export async function POST(req: Request) {
 
   const freeTier = isFreePlan(profile)
   if (freeTier) {
+    if (input.requestedImageCount > 0 || input.uploadedImages.length > 0 || input.referenceImage) {
+      return NextResponse.json(upgradeRequired("The Free plan is text-only. Upgrade to add cover or chapter images."), { status: 403 })
+    }
     const claimed = await claimFreeTierSlot(supabase, user.id)
     if (!claimed) {
       return NextResponse.json(
@@ -106,8 +109,8 @@ export async function POST(req: Request) {
       status: "draft",
       is_free_tier: freeTier,
       reference_image_url: input.referenceImage ?? null,
-      requested_image_count: input.requestedImageCount,
-      image_source: input.imageSource,
+      requested_image_count: freeTier ? 0 : input.requestedImageCount,
+      image_source: freeTier ? "ai" : input.imageSource,
       front_cover_copy: input.frontCoverCopy?.trim() || null,
       back_cover_copy: input.backCoverCopy?.trim() || null,
     })
