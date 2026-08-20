@@ -32,6 +32,8 @@ export interface Database {
           stripe_subscription_id: string | null
           subscription_status: string
           subscription_current_period_end: string | null
+          account_canceled_at: string | null
+          subscription_started_at: string | null
           created_at: string
           updated_at: string
         }
@@ -345,9 +347,33 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["stripe_webhook_events"]["Row"]>
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          id: string
+          ticket_number: string
+          user_id: string | null
+          name: string
+          email: string
+          subject: string
+          message: string
+          status: string
+          created_at: string
+        }
+        Insert: Partial<Database["public"]["Tables"]["support_tickets"]["Row"]> & {
+          ticket_number: string
+          name: string
+          email: string
+          subject: string
+          message: string
+        }
+        Update: Partial<Database["public"]["Tables"]["support_tickets"]["Row"]>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      next_ticket_number: { Args: Record<string, never>; Returns: string }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

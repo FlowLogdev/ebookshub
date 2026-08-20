@@ -16,8 +16,8 @@ export function SiteFooter() {
         <div className="space-y-3 text-sm">
           <p className="font-medium">Product</p>
           <ul className="space-y-2 text-muted-foreground">
-            <li><a href="#how-it-works" className="hover:text-foreground">How it works</a></li>
-            <li><a href="#capabilities" className="hover:text-foreground">Capabilities</a></li>
+            <li><Link href="/how-it-works" className="hover:text-foreground">How it works</Link></li>
+            <li><Link href="/capabilities" className="hover:text-foreground">Capabilities</Link></li>
             <li><Link href="/pricing" className="hover:text-foreground">Pricing</Link></li>
             <li><Link href="/create" className="hover:text-foreground">Start creating</Link></li>
           </ul>
@@ -35,8 +35,10 @@ export function SiteFooter() {
         <div className="space-y-3 text-sm">
           <p className="font-medium">Company</p>
           <ul className="space-y-2 text-muted-foreground">
-            <li><a href="#faq" className="hover:text-foreground">FAQ</a></li>
-            <li><a href="mailto:hello@ebookhubs.com" className="hover:text-foreground">Contact</a></li>
+            <li><Link href="/faq" className="hover:text-foreground">FAQ</Link></li>
+            <li><Link href="/support" className="hover:text-foreground">Support</Link></li>
+            <li><Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link></li>
+            <li><Link href="/refund" className="hover:text-foreground">Refund Policy</Link></li>
           </ul>
         </div>
       </div>

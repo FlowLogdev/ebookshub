@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { LogOut, Plus, Settings } from "lucide-react"
+import { LifeBuoy, LogOut, Plus, Settings } from "lucide-react"
 
 import { Logo } from "@/components/brand/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { SupportTicketForm } from "@/components/support/support-ticket-form"
 import { createClient } from "@/lib/supabase/client"
 
 export function DashboardTopbar() {
   const [initial, setInitial] = useState("?")
   const [email, setEmail] = useState("")
+  const [displayName, setDisplayName] = useState("")
+  const [supportOpen, setSupportOpen] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -20,6 +24,7 @@ export function DashboardTopbar() {
       const name = (data.user?.user_metadata?.full_name as string | undefined) ?? data.user?.email ?? "?"
       setInitial(name.charAt(0).toUpperCase())
       setEmail(data.user?.email ?? "")
+      setDisplayName((data.user?.user_metadata?.full_name as string | undefined) ?? "")
     })
   }, [])
 
@@ -28,6 +33,9 @@ export function DashboardTopbar() {
       <div className="container flex h-16 items-center justify-between">
         <Logo href="/dashboard" />
         <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => setSupportOpen(true)}>
+            <LifeBuoy className="h-4 w-4" /> Support
+          </Button>
           <Button variant="gold" asChild>
             <Link href="/create"><Plus className="h-4 w-4" /> Create New Book</Link>
           </Button>
@@ -59,6 +67,15 @@ export function DashboardTopbar() {
           </DropdownMenu>
         </div>
       </div>
+
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Contact support</DialogTitle>
+          </DialogHeader>
+          <SupportTicketForm defaultName={displayName} defaultEmail={email} />
+        </DialogContent>
+      </Dialog>
     </header>
   )
 }
