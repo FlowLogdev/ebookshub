@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: "/capabilities", label: "Capabilities" },
   { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "FAQ" },
+  { href: "/support", label: "Support" },
 ]
 
 export function SiteHeader() {
